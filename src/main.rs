@@ -1,12 +1,18 @@
 #![no_std]
 #![no_main]
 
+use core::mem::MaybeUninit;
 use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use panic_semihosting as _;
-use stm32f1xx_hal::gpio::Output;
+use stm32f1xx_hal::gpio::Edge;
+use stm32f1xx_hal::gpio::ExtiPin;
+use stm32f1xx_hal::gpio::Floating;
+use stm32f1xx_hal::gpio::Input;
 use stm32f1xx_hal::gpio::gpiob;
+use stm32f1xx_hal::gpio::Output;
 use stm32f1xx_hal::gpio::PushPull;
+use stm32f1xx_hal::i2c::Mode;
 use stm32f1xx_hal::pac::{interrupt, Interrupt, NVIC};
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::{
@@ -16,10 +22,13 @@ use stm32f1xx_hal::{
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
+mod scd30;
+
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
 static mut USB_SERIAL: Option<SerialPort<UsbBusType>> = None;
 static mut USB_DEVICE: Option<UsbDevice<UsbBusType>> = None;
 static mut RED_LED: Option<gpiob::PB8<Output<PushPull>>> = None;
+static mut SCD_DATA_RDY_PIN: MaybeUninit<gpiob::PB0<Input<Floating>>> = MaybeUninit::uninit();
 
 #[entry]
 fn main() -> ! {
@@ -40,6 +49,7 @@ fn main() -> ! {
 
     let mut gpioa = device_peripherals.GPIOA.split();
     let mut gpiob = device_peripherals.GPIOB.split();
+    let mut afio = device_peripherals.AFIO.constrain();
 
     // Pulling the D+ pin low to indicate a RESET condition on USB bus.
     // This triggers host to cut power which will allow device to re-enumerate
@@ -69,9 +79,34 @@ fn main() -> ! {
 
     let mut green_led = gpiob.pb7.into_push_pull_output(&mut gpiob.crl);
 
+    let scl = gpiob.pb10.into_alternate_open_drain(&mut gpiob.crh);
+    let sda = gpiob.pb11.into_alternate_open_drain(&mut gpiob.crh);
+
+    let mut i2c = stm32f1xx_hal::i2c::I2c::i2c2(
+        device_peripherals.I2C2,
+        (scl, sda),
+        Mode::Standard {
+            frequency: 100.kHz(),
+        },
+        clocks,
+    )
+    .blocking(1000, 10, 1000, 1000, clocks);
+
+    let scd_sensor = scd30::Scd30::new();
+    let _ = scd_sensor.soft_reset(&mut i2c);
+
+    {
+        let scd_data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
+        *scd_data_rdy_pin = gpiob.pb0.into_floating_input(&mut gpiob.crl);
+        scd_data_rdy_pin.make_interrupt_source(&mut afio);
+        scd_data_rdy_pin.trigger_on_edge(&device_peripherals.EXTI, Edge::Rising);
+        scd_data_rdy_pin.enable_interrupt(&device_peripherals.EXTI);
+    }
+
     unsafe {
         NVIC::unmask(Interrupt::USB_HP_CAN_TX);
         NVIC::unmask(Interrupt::USB_LP_CAN_RX0);
+        NVIC::unmask(Interrupt::EXTI0);
     }
 
     loop {
@@ -92,6 +127,15 @@ fn USB_LP_CAN_RX0() {
     usb_interrupt();
 }
 
+#[interrupt]
+fn EXTI0() {
+    let data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
+    if data_rdy_pin.check_interrupt() {
+        unsafe { RED_LED.as_mut().unwrap().toggle() };
+        data_rdy_pin.clear_interrupt_pending_bit();
+    }
+}
+
 fn usb_interrupt() {
     let usb_dev = unsafe { USB_DEVICE.as_mut().unwrap() };
     let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
@@ -108,9 +152,6 @@ fn usb_interrupt() {
                 for ch in buf[0..count].iter_mut() {
                     if 0x61 <= *ch && *ch <= 0x7a {
                         *ch &= !0x20;
-                    }
-                    if *ch == 0x52 {
-                        unsafe { RED_LED.as_mut().unwrap().toggle() };
                     }
                 }
                 serial.write(&buf[0..count]).ok();
