@@ -6,6 +6,7 @@ version = 3
 name = "atmosensor-stm32"
 version = "0.1.0"
 dependencies = [
+ "bare-metal 1.0.0",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",

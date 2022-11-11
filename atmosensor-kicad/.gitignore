@@ -1,0 +1,4 @@
+*.kicad_sch-bak
+atmosensor-kicad-backups
+manufacturing
+fp-info-cache

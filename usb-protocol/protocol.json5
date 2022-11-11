@@ -1,0 +1,23 @@
+{
+    "version": "0.1.0",
+    "groups": [
+        {
+            "group": "Debug",
+            "number": 0xde,
+            "commands": [
+                {
+                    "name": "Ping",
+                    "number": 0x00,
+                    "description": "Pings the application firmware",
+                    "parameters": []
+                },
+                {
+                    "name": "Ping Response",
+                    "number": 0x01,
+                    "description": "Response from the application firmware",
+                    "parameters": []
+                }
+            ]
+        }
+    ]
+}

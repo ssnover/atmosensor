@@ -23,6 +23,8 @@ use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod scd30;
+mod utils;
+use utils::SpscQueue;
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
 static mut USB_SERIAL: Option<SerialPort<UsbBusType>> = None;
@@ -32,7 +34,6 @@ static mut SCD_DATA_RDY_PIN: MaybeUninit<gpiob::PB0<Input<Floating>>> = MaybeUni
 
 #[entry]
 fn main() -> ! {
-    let core_peripherals = cortex_m::Peripherals::take().unwrap();
     let device_peripherals = stm32f1xx_hal::pac::Peripherals::take().unwrap();
     let mut flash = device_peripherals.FLASH.constrain();
     let rcc = device_peripherals.RCC.constrain();
@@ -86,7 +87,7 @@ fn main() -> ! {
         device_peripherals.I2C2,
         (scl, sda),
         Mode::Standard {
-            frequency: 100.kHz(),
+            frequency: 50.kHz(),
         },
         clocks,
     )
