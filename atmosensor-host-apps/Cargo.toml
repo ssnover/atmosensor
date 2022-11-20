@@ -1,0 +1,15 @@
+[package]
+name = "atmosensor-host-apps"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "atmosensor-tui"
+path = "src/bin/tui.rs"
+
+[dependencies]
+crossterm = "0.25"
+tokio = { version = "1.21", features = ["full"] }
+tokio-serial = "5.4"
+tui = { version = "0.19", features = ["crossterm"] }
+unicode-width = "0.1"
