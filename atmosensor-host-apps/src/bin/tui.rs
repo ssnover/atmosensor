@@ -3,8 +3,11 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::collections::VecDeque;
+use std::marker::Unpin;
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio_serial::SerialPortBuilderExt;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
@@ -26,7 +29,7 @@ fn hex_char_to_val(ch: char) -> u8 {
 }
 
 fn hex_str_to_bytes(hex_str: &[char]) -> Option<Vec<u8>> {
-    if hex_str.len() / 2 == 0 {
+    if hex_str.len() % 2 == 0 {
         Some(
             hex_str
                 .iter()
@@ -41,7 +44,7 @@ fn hex_str_to_bytes(hex_str: &[char]) -> Option<Vec<u8>> {
 }
 
 fn nibble_to_hex_char(nibble: u8) -> u8 {
-    assert_eq!(nibble, nibble | 0xF);
+    assert_eq!(nibble, nibble & 0xF);
     match nibble {
         0..=9 => ('0' as u8) + (nibble),
         0xa..=0xf => ('a' as u8) + (nibble - 10),
@@ -52,7 +55,7 @@ fn nibble_to_hex_char(nibble: u8) -> u8 {
 fn byte_to_hex_str(byte: u8) -> [u8; 2] {
     [
         nibble_to_hex_char(byte >> 4),
-        nibble_to_hex_char(byte | 0xF),
+        nibble_to_hex_char(byte & 0xF),
     ]
 }
 
@@ -93,17 +96,18 @@ impl ApplicationState {
     fn push_cmd(&mut self) {
         let input: Vec<_> = self.input.drain(..).collect();
         if !input.is_empty() {
-            if input.len() / 2 == 0 {
+            if input.len() % 2 == 0 {
                 let byte_data = hex_str_to_bytes(&input[..]).unwrap();
                 let mut msgs = self.messages.lock().unwrap();
                 msgs.push_back(Message::Sent {
                     data: byte_data.clone(),
                 });
-                self.io_handle.blocking_send(byte_data).unwrap();
+                // If there's an error here the channel closed so just exit
+                let _ = self.io_handle.blocking_send(byte_data);
             } else {
                 let mut msgs = self.messages.lock().unwrap();
                 msgs.push_back(Message::Error {
-                    inner: String::from("odd number of chars in hex string"),
+                    inner: format!("odd number of chars in hex string, found {}", input.len()),
                 });
             }
         }
@@ -111,6 +115,10 @@ impl ApplicationState {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const DEFAULT_TTY: &'static str = "/dev/ttyACM0";
+    let mut args = std::env::args();
+    let tty_path = args.nth(1).unwrap_or(DEFAULT_TTY.to_string());
+
     crossterm::terminal::enable_raw_mode()?;
     let mut stdout = std::io::stdout();
     crossterm::execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -127,7 +135,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Run the app
-    run_io_context(rx, msg_queue);
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    std::thread::spawn(move || {
+        rt.block_on(run_io_context(&tty_path, rx, msg_queue));
+    });
     let res = run_ui_context(&mut terminal, &mut app_state);
 
     crossterm::terminal::disable_raw_mode()?;
@@ -159,6 +173,7 @@ fn run_ui_context<B: Backend>(
                 }
                 KeyCode::Enter => {
                     app_state.push_cmd();
+                    app_state.input = String::new();
                 }
                 KeyCode::Char(ch) => {
                     if HEX_CHARS.contains(ch) {
@@ -177,20 +192,64 @@ fn run_ui_context<B: Backend>(
     Ok(())
 }
 
-#[tokio::main]
 async fn run_io_context(
+    tty_path: &str,
     rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
     messages: Arc<Mutex<VecDeque<Message>>>,
 ) {
+    let port = tokio_serial::new(tty_path, 115200)
+        .open_native_async()
+        .unwrap();
+    let (reader, writer) = tokio::io::split(port);
+
+    tokio::select! {
+        _ = io_receive(reader, messages.clone()) => {
+
+        },
+        _ = io_send(writer, rcvr, messages) => {
+
+        }
+    };
+}
+
+async fn io_receive<R: AsyncReadExt + Unpin>(mut reader: R, messages: Arc<Mutex<VecDeque<Message>>>) {
+    // Read data from serial port, cobs decode, and drop new messages into the queue
+    let mut rx_buffer = [0u8; 1024];
+    loop {
+        if let Ok(bytes_read) = reader.read(&mut rx_buffer).await {
+            // todo: cobs decode
+
+            let mut msg_queue = messages.lock().unwrap();
+            msg_queue.push_back(Message::Received {
+                data: rx_buffer[..bytes_read].into()
+            });
+        }
+    }
+}
+
+async fn io_send<W: AsyncWriteExt + Unpin>(
+    mut writer: W,
+    mut rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
+    messages: Arc<Mutex<VecDeque<Message>>>,
+) {
+    // When we get new messages on the channel, cobs encode, and send over the serial port
+    while let Some(msg) = rcvr.recv().await {
+
+        // todo: cobs encode probably
+
+        if let Err(err) = writer.write_all(&msg[..]).await {
+            let mut messages = messages.lock().unwrap();
+            messages.push_back(Message::Error { inner: format!("{err:?}")});
+        }
+    }
 }
 
 fn ui<B: Backend>(frame: &mut tui::Frame<B>, app_state: &mut ApplicationState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)
+        .margin(0)
         .constraints(
             [
-                Constraint::Length(1),
                 Constraint::Length(3),
                 Constraint::Min(1),
             ]
@@ -224,5 +283,5 @@ fn ui<B: Backend>(frame: &mut tui::Frame<B>, app_state: &mut ApplicationState) {
         .collect();
     let messages =
         List::new(messages).block(Block::default().borders(Borders::ALL).title("Messages"));
-    frame.render_widget(messages, chunks[2]);
+    frame.render_widget(messages, chunks[1]);
 }
