@@ -7,6 +7,7 @@ name = "atmosensor-stm32"
 version = "0.1.0"
 dependencies = [
  "bare-metal 1.0.0",
+ "cobs",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
@@ -57,6 +58,12 @@ dependencies = [
  "nb 1.0.0",
  "vcell",
 ]
+
+[[package]]
+name = "cobs"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
 
 [[package]]
 name = "cortex-m"

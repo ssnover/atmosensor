@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 bare-metal = "1.0.0"
+cobs = { version = "0.2", default-features = false }
 cortex-m = "0.7.6"
 cortex-m-rt = "0.7.1"
 cortex-m-semihosting = "0.5.0"

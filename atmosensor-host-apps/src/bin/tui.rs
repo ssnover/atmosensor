@@ -11,8 +11,8 @@ use tokio_serial::SerialPortBuilderExt;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
+    style::{Color, Style},
+    text::{Span, Spans},
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 use unicode_width::UnicodeWidthStr;
@@ -212,17 +212,28 @@ async fn run_io_context(
     };
 }
 
-async fn io_receive<R: AsyncReadExt + Unpin>(mut reader: R, messages: Arc<Mutex<VecDeque<Message>>>) {
+async fn io_receive<R: AsyncReadExt + Unpin>(
+    mut reader: R,
+    messages: Arc<Mutex<VecDeque<Message>>>,
+) {
     // Read data from serial port, cobs decode, and drop new messages into the queue
     let mut rx_buffer = [0u8; 1024];
+    let mut decoded_rx_buffer = [0u8; 1024];
     loop {
         if let Ok(bytes_read) = reader.read(&mut rx_buffer).await {
-            // todo: cobs decode
-
-            let mut msg_queue = messages.lock().unwrap();
-            msg_queue.push_back(Message::Received {
-                data: rx_buffer[..bytes_read].into()
-            });
+            if let Ok(bytes_decoded) =
+                cobs::decode(&rx_buffer[..bytes_read], &mut decoded_rx_buffer)
+            {
+                let mut msg_queue = messages.lock().unwrap();
+                msg_queue.push_back(Message::Received {
+                    data: decoded_rx_buffer[..bytes_decoded].into(),
+                });
+            } else {
+                let mut msg_queue = messages.lock().unwrap();
+                msg_queue.push_back(Message::Error {
+                    inner: String::from("cobs decode failed"),
+                });
+            }
         }
     }
 }
@@ -232,14 +243,16 @@ async fn io_send<W: AsyncWriteExt + Unpin>(
     mut rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
     messages: Arc<Mutex<VecDeque<Message>>>,
 ) {
+    let mut encoded_tx_buffer = [0u8; 1024];
     // When we get new messages on the channel, cobs encode, and send over the serial port
     while let Some(msg) = rcvr.recv().await {
+        let bytes_encoded = cobs::encode(&msg[..], &mut encoded_tx_buffer);
 
-        // todo: cobs encode probably
-
-        if let Err(err) = writer.write_all(&msg[..]).await {
+        if let Err(err) = writer.write_all(&encoded_tx_buffer[..bytes_encoded]).await {
             let mut messages = messages.lock().unwrap();
-            messages.push_back(Message::Error { inner: format!("{err:?}")});
+            messages.push_back(Message::Error {
+                inner: format!("{err:?}"),
+            });
         }
     }
 }
@@ -248,13 +261,7 @@ fn ui<B: Backend>(frame: &mut tui::Frame<B>, app_state: &mut ApplicationState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(0)
-        .constraints(
-            [
-                Constraint::Length(3),
-                Constraint::Min(1),
-            ]
-            .as_ref(),
-        )
+        .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
         .split(frame.size());
 
     let input = Paragraph::new(app_state.input.as_ref())
