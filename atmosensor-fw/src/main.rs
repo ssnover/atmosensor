@@ -1,10 +1,7 @@
 #![no_std]
 #![no_main]
 
-use core::borrow::Borrow;
 use core::mem::MaybeUninit;
-use core::cell::RefCell;
-use cortex_m::interrupt::Mutex;
 use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use panic_semihosting as _;
@@ -20,23 +17,15 @@ use stm32f1xx_hal::pac::{interrupt, Interrupt, NVIC};
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::{
     rcc::RccExt,
-    usb::{Peripheral, UsbBus, UsbBusType},
+    usb::{Peripheral},
 };
-use usb_device::{bus::UsbBusAllocator, prelude::*};
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod scd30;
+mod tasks;
 mod utils;
-use utils::SpscQueue;
 
-static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
-static mut USB_SERIAL: Option<SerialPort<UsbBusType>> = None;
-static mut USB_DEVICE: Option<UsbDevice<UsbBusType>> = None;
 static mut RED_LED: Option<gpiob::PB8<Output<PushPull>>> = None;
 static mut SCD_DATA_RDY_PIN: MaybeUninit<gpiob::PB0<Input<Floating>>> = MaybeUninit::uninit();
-static USB_RX_BUFFER: Mutex<RefCell<[u8; 1024]>> = Mutex::new(RefCell::new([0u8; 1024]));
-static USB_TX_BUFFER: Mutex<RefCell<[u8; 1024]>> = Mutex::new(RefCell::new([0u8; 1024]));
-static USB_ENCODING_BUFFER: Mutex<RefCell<[u8; 1024]>> = Mutex::new(RefCell::new([0u8; 1024]));
 
 #[entry]
 fn main() -> ! {
@@ -70,17 +59,9 @@ fn main() -> ! {
         pin_dp: usb_dp.into_floating_input(&mut gpioa.crh),
     };
 
+    let cmd_rcvr = tasks::CommandReceiver::new(usb);
+
     unsafe {
-        let usb_bus = UsbBus::new(usb);
-        USB_BUS = Some(usb_bus);
-        USB_SERIAL = Some(SerialPort::new(USB_BUS.as_ref().unwrap()));
-        let usb_dev = UsbDeviceBuilder::new(USB_BUS.as_ref().unwrap(), UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Snostorm Labs")
-            .product("Atmosensor")
-            .serial_number("FAKE")
-            .device_class(USB_CLASS_CDC)
-            .build();
-        USB_DEVICE = Some(usb_dev);
         RED_LED = Some(gpiob.pb8.into_push_pull_output(&mut gpiob.crh));
     }
 
@@ -111,27 +92,12 @@ fn main() -> ! {
     }
 
     unsafe {
-        NVIC::unmask(Interrupt::USB_HP_CAN_TX);
-        NVIC::unmask(Interrupt::USB_LP_CAN_RX0);
         NVIC::unmask(Interrupt::EXTI0);
     }
 
     loop {
-        delay(clocks.sysclk().raw() / 10);
-        green_led.set_high();
-        delay(clocks.sysclk().raw() / 10);
-        green_led.set_low();
+        cmd_rcvr.run();
     }
-}
-
-#[interrupt]
-fn USB_HP_CAN_TX() {
-    usb_interrupt();
-}
-
-#[interrupt]
-fn USB_LP_CAN_RX0() {
-    usb_interrupt();
 }
 
 #[interrupt]
@@ -141,35 +107,4 @@ fn EXTI0() {
         unsafe { RED_LED.as_mut().unwrap().toggle() };
         data_rdy_pin.clear_interrupt_pending_bit();
     }
-}
-
-fn usb_interrupt() {
-    let usb_dev = unsafe { USB_DEVICE.as_mut().unwrap() };
-    let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
-
-    if !usb_dev.poll(&mut [serial]) {
-        return;
-    }
-
-    cortex_m::interrupt::free(|cs| {
-        let mut rx_buffer_borrow = USB_RX_BUFFER.borrow(cs).borrow_mut();
-        let mut rx_buffer = rx_buffer_borrow.as_mut();
-        let mut tx_buffer_borrow = USB_TX_BUFFER.borrow(cs).borrow_mut();
-        let mut tx_buffer = tx_buffer_borrow.as_mut();
-        let mut encoding_buffer_borrow = USB_ENCODING_BUFFER.borrow(cs).borrow_mut();
-        let mut encoding_buffer = encoding_buffer_borrow.as_mut();
-        if let Ok(bytes_read) = serial.read(&mut rx_buffer) {
-            if let Ok(bytes_decoded) = cobs::decode(&rx_buffer[..bytes_read], &mut encoding_buffer) {
-                if bytes_decoded == 2 && encoding_buffer[0] == 0xde && encoding_buffer[1] == 0x00 {
-                    // Received a ping, send a pong
-                    encoding_buffer[0] = 0xde;
-                    encoding_buffer[1] = 0x01;
-
-                    let bytes_encoded = cobs::encode(&encoding_buffer[..2], &mut tx_buffer);
-                    // TODO check for errors here
-                    let _ = serial.write(&tx_buffer[..bytes_encoded]);
-                }
-            }
-        }
-    });
 }

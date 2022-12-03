@@ -1,18 +1,16 @@
-use bare_metal::CriticalSection;
+use cortex_m::interrupt::CriticalSection;
 use core::cmp::Ordering;
 
-pub struct SpscQueue<'a, T, const N: usize> {
-    data: &'a mut [T; N],
+pub struct CobsBuffer<'a, const N: usize> {
+    data: &'a mut [u8; N],
     write: usize,
     read: usize,
 }
 
-impl<'a, T, const N: usize> SpscQueue<'a, T, N>
-where
-    T: 'a + Copy,
+impl<'a, const N: usize> CobsBuffer<'a, N>
 {
-    pub fn new(buf: &'a mut [T; N]) -> SpscQueue<'a, T, N> {
-        SpscQueue {
+    pub fn new(buf: &'a mut [u8; N]) -> CobsBuffer<'a, N> {
+        CobsBuffer {
             data: buf,
             write: 0,
             read: 0,
@@ -23,7 +21,7 @@ where
         N
     }
 
-    pub fn available_to_read<'cs>(&'cs self, _cs: CriticalSection<'cs>) -> usize {
+    pub fn available_to_read(&self, _cs: &CriticalSection) -> usize {
         match self.read.cmp(&self.write) {
             Ordering::Equal => 0,
             Ordering::Greater => {
@@ -35,13 +33,13 @@ where
         }
     }
 
-    pub fn read<'cs>(&'cs mut self, _cs: CriticalSection<'cs>, buf: &mut [T]) -> usize {
+    /// Reads COBS-encoded bytes up to lesser of the available amount or the size of the
+    /// provided buffer `buf`. 
+    pub fn read_bytes(&mut self, _cs: &CriticalSection, buf: &mut [u8]) -> usize {
         match self.read.cmp(&self.write) {
             Ordering::Equal => 0,
             Ordering::Greater => {
                 // Read through the end of the buffer and then wrap around up to write pointer
-                let available_to_end = N - self.read;
-                let available_for_read = available_to_end + self.write;
                 let mut bytes_read = 0;
                 for read_idx in self.read..core::cmp::min(N, buf.len()) {
                     // Read to the end of the memory buffer first
@@ -62,7 +60,6 @@ where
                 bytes_read
             },
             Ordering::Less => {
-                let available_for_read = self.write - self.read;
                 let mut bytes_read = 0;
                 for read_idx in self.read..core::cmp::min(self.write, self.read + buf.len()) {
                     buf[bytes_read] = self.data[read_idx];
@@ -74,7 +71,48 @@ where
         }
     }
 
-    pub fn write<'cs>(&'cs mut self, _cs: CriticalSection<'cs>, buf: &[T]) -> usize {
+    /// Decodes a single COBS-encoded section of the buffer and returns the resulting decoded
+    /// packet as bytes.
+    pub fn read_packet(&mut self, _cs: &CriticalSection, buf: &mut [u8]) -> Result<usize, ()> {
+        let mut decoder = cobs::CobsDecoder::new(buf);
+        match self.read.cmp(&self.write) {
+            Ordering::Equal => Err(()),
+            Ordering::Greater => {
+                match decoder.push(&self.data[self.read..]) {
+                    Err(_n_bytes) => Err(()),
+                    Ok(Some((n, m))) => {
+                        self.read += m;
+                        Ok(n)
+                    },
+                    Ok(None) => {
+                        match decoder.push(&self.data[..self.write]) {
+                            Err(_) => Err(()),
+                            Ok(Some((n, m))) => {
+                                self.read = m;
+                                Ok(n)
+                            }
+                            Ok(None) => {
+                                Err(())
+                            }
+                        }
+                    }
+                }
+            },
+            Ordering::Less => {
+                match decoder.push(&self.data[self.read..self.write]) {
+                    Err(_) => Err(()),
+                    Ok(Some((n, m))) => {
+                        self.read += m;
+                        Ok(n)
+                    }
+                    Ok(None) => Err(())
+                }
+            }
+        }
+    }
+
+    /// Write COBS-encoded bytes into the buffer (if they're not you'll be sad).
+    pub fn write_bytes(&mut self, _cs: &CriticalSection, buf: &[u8]) -> usize {
         let available_without_overwrite = match self.write.cmp(&self.read) {
             Ordering::Equal => {
                 // Whole buffer is available to write to

@@ -1,2 +1,2 @@
-mod spsc_queue;
-pub use spsc_queue::*;
+mod cobs_buffer;
+pub use cobs_buffer::*;
