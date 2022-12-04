@@ -166,6 +166,9 @@ fn run_ui_context<B: Backend>(
     loop {
         terminal.draw(|frame| ui(frame, app_state))?;
 
+        if let Ok(false) = crossterm::event::poll(std::time::Duration::from_millis(50)) {
+            continue;
+        }
         if let Event::Key(key) = crossterm::event::read()? {
             match key.code {
                 KeyCode::Esc => {
@@ -231,7 +234,10 @@ async fn io_receive<R: AsyncReadExt + Unpin>(
             } else {
                 let mut msg_queue = messages.lock().unwrap();
                 msg_queue.push_back(Message::Error {
-                    inner: String::from("cobs decode failed"),
+                    inner: format!(
+                        "cobs decode failed: {}",
+                        bytes_to_hex_str(&rx_buffer[..bytes_read])
+                    ),
                 });
             }
         }
@@ -253,6 +259,9 @@ async fn io_send<W: AsyncWriteExt + Unpin>(
             messages.push_back(Message::Error {
                 inner: format!("{err:?}"),
             });
+        } else {
+            // The CobsDecoder class requires a termination byte in order to complete
+            writer.write(&[0x00]).await.unwrap();
         }
     }
 }

@@ -1,14 +1,20 @@
-use cortex_m::interrupt::CriticalSection;
 use core::cmp::Ordering;
+use cortex_m::interrupt::CriticalSection;
 
 pub struct CobsBuffer<'a, const N: usize> {
-    data: &'a mut [u8; N],
+    pub data: &'a mut [u8; N],
     write: usize,
     read: usize,
 }
 
-impl<'a, const N: usize> CobsBuffer<'a, N>
-{
+#[repr(u8)]
+pub enum DecodeError {
+    UnknownDecodeErr,
+    MsgIncomplete,
+    NoBytes,
+}
+
+impl<'a, const N: usize> CobsBuffer<'a, N> {
     pub fn new(buf: &'a mut [u8; N]) -> CobsBuffer<'a, N> {
         CobsBuffer {
             data: buf,
@@ -17,24 +23,18 @@ impl<'a, const N: usize> CobsBuffer<'a, N>
         }
     }
 
-    pub const fn len() -> usize {
-        N
-    }
-
+    #[allow(unused)]
     pub fn available_to_read(&self, _cs: &CriticalSection) -> usize {
         match self.read.cmp(&self.write) {
             Ordering::Equal => 0,
-            Ordering::Greater => {
-                N - self.read + self.write
-            },
-            Ordering::Less => {
-                self.write - self.read
-            }
+            Ordering::Greater => N - self.read + self.write,
+            Ordering::Less => self.write - self.read,
         }
     }
 
     /// Reads COBS-encoded bytes up to lesser of the available amount or the size of the
-    /// provided buffer `buf`. 
+    /// provided buffer `buf`.
+    #[allow(unused)]
     pub fn read_bytes(&mut self, _cs: &CriticalSection, buf: &mut [u8]) -> usize {
         match self.read.cmp(&self.write) {
             Ordering::Equal => 0,
@@ -58,7 +58,7 @@ impl<'a, const N: usize> CobsBuffer<'a, N>
                     }
                 }
                 bytes_read
-            },
+            }
             Ordering::Less => {
                 let mut bytes_read = 0;
                 for read_idx in self.read..core::cmp::min(self.write, self.read + buf.len()) {
@@ -73,41 +73,37 @@ impl<'a, const N: usize> CobsBuffer<'a, N>
 
     /// Decodes a single COBS-encoded section of the buffer and returns the resulting decoded
     /// packet as bytes.
-    pub fn read_packet(&mut self, _cs: &CriticalSection, buf: &mut [u8]) -> Result<usize, ()> {
+    pub fn read_packet(
+        &mut self,
+        _cs: &CriticalSection,
+        buf: &mut [u8],
+    ) -> Result<usize, DecodeError> {
         let mut decoder = cobs::CobsDecoder::new(buf);
         match self.read.cmp(&self.write) {
-            Ordering::Equal => Err(()),
-            Ordering::Greater => {
-                match decoder.push(&self.data[self.read..]) {
-                    Err(_n_bytes) => Err(()),
-                    Ok(Some((n, m))) => {
-                        self.read += m;
-                        Ok(n)
-                    },
-                    Ok(None) => {
-                        match decoder.push(&self.data[..self.write]) {
-                            Err(_) => Err(()),
-                            Ok(Some((n, m))) => {
-                                self.read = m;
-                                Ok(n)
-                            }
-                            Ok(None) => {
-                                Err(())
-                            }
-                        }
-                    }
+            Ordering::Equal => Err(DecodeError::NoBytes),
+            Ordering::Greater => match decoder.push(&self.data[self.read..]) {
+                Err(_n_bytes) => Err(DecodeError::UnknownDecodeErr),
+                Ok(Some((n, m))) => {
+                    self.read += m;
+                    Ok(n)
                 }
+                Ok(None) => match decoder.push(&self.data[..self.write]) {
+                    Err(_) => Err(DecodeError::UnknownDecodeErr),
+                    Ok(Some((n, m))) => {
+                        self.read = m;
+                        Ok(n)
+                    }
+                    Ok(None) => Err(DecodeError::MsgIncomplete),
+                },
             },
-            Ordering::Less => {
-                match decoder.push(&self.data[self.read..self.write]) {
-                    Err(_) => Err(()),
-                    Ok(Some((n, m))) => {
-                        self.read += m;
-                        Ok(n)
-                    }
-                    Ok(None) => Err(())
+            Ordering::Less => match decoder.push(&self.data[self.read..self.write]) {
+                Err(_) => Err(DecodeError::UnknownDecodeErr),
+                Ok(Some((n, m))) => {
+                    self.read += m;
+                    Ok(n)
                 }
-            }
+                Ok(None) => Err(DecodeError::MsgIncomplete),
+            },
         }
     }
 
@@ -117,11 +113,11 @@ impl<'a, const N: usize> CobsBuffer<'a, N>
             Ordering::Equal => {
                 // Whole buffer is available to write to
                 N
-            },
+            }
             Ordering::Greater => {
                 // Can write to end of buffer and then some before overwrite
                 N - self.write + self.read
-            },
+            }
             Ordering::Less => {
                 // Can
                 self.read - self.write
@@ -142,7 +138,6 @@ impl<'a, const N: usize> CobsBuffer<'a, N>
             }
             assert_eq!(self.write, N);
             self.write = 0;
-            let bytes_remaining = buf.len() - bytes_written;
             for write_idx in bytes_written..buf.len() {
                 self.data[self.write] = buf[write_idx];
                 self.write += 1;

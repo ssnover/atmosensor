@@ -5,20 +5,17 @@ use core::mem::MaybeUninit;
 use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use panic_semihosting as _;
+use stm32f1xx_hal::gpio::gpiob;
 use stm32f1xx_hal::gpio::Edge;
 use stm32f1xx_hal::gpio::ExtiPin;
 use stm32f1xx_hal::gpio::Floating;
 use stm32f1xx_hal::gpio::Input;
-use stm32f1xx_hal::gpio::gpiob;
 use stm32f1xx_hal::gpio::Output;
 use stm32f1xx_hal::gpio::PushPull;
 use stm32f1xx_hal::i2c::Mode;
 use stm32f1xx_hal::pac::{interrupt, Interrupt, NVIC};
 use stm32f1xx_hal::prelude::*;
-use stm32f1xx_hal::{
-    rcc::RccExt,
-    usb::{Peripheral},
-};
+use stm32f1xx_hal::{rcc::RccExt, usb::Peripheral};
 
 mod scd30;
 mod tasks;
@@ -97,6 +94,7 @@ fn main() -> ! {
 
     loop {
         cmd_rcvr.run();
+        delay(clocks.sysclk().raw() / 10);
     }
 }
 

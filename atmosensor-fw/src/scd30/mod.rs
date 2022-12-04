@@ -17,7 +17,7 @@ impl Scd30 {
         Scd30 { addr }
     }
 
-    pub fn soft_reset<I2C, E>(&self, i2c: &mut I2C) -> Result<(), E> 
+    pub fn soft_reset<I2C, E>(&self, i2c: &mut I2C) -> Result<(), E>
     where
         I2C: WriteRead<Error = E> + Write<Error = E>,
         E: Debug,
