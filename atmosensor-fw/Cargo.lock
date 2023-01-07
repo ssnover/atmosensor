@@ -15,6 +15,7 @@ dependencies = [
  "nb 1.0.0",
  "panic-halt",
  "panic-semihosting",
+ "stm32f1 0.14.0",
  "stm32f1xx-hal",
  "unwrap-infallible",
  "usb-device",
@@ -50,11 +51,12 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bxcan"
-version = "0.6.2"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b13b4b2ea9ab2ba924063ebb86ad895cb79f4a79bf90f27949eb20c335b30f9"
+checksum = "40ac3d0c0a542d0ab5521211f873f62706a7136df415676f676d347e5a41dd80"
 dependencies = [
  "bitflags",
+ "embedded-hal",
  "nb 1.0.0",
  "vcell",
 ]
@@ -262,10 +264,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "stm32f1xx-hal"
-version = "0.9.0"
+name = "stm32f1"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1232c561785bdbc59a5ab2b28c5c9429cb9ee9b04687133e59d1a34a39426943"
+checksum = "f2dc80735831c28fe85384e1e28428fb6d201f67c696e369a239ed9c5eba369d"
+dependencies = [
+ "bare-metal 1.0.0",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
+name = "stm32f1xx-hal"
+version = "0.10.0"
 dependencies = [
  "bitflags",
  "bxcan",
@@ -277,7 +289,7 @@ dependencies = [
  "fugit-timer",
  "nb 1.0.0",
  "stm32-usbd",
- "stm32f1",
+ "stm32f1 0.15.1",
  "void",
 ]
 

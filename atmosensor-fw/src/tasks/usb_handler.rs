@@ -18,9 +18,9 @@ static mut USB_RX_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
 static mut USB_RX_BUFFER: MaybeUninit<CobsBuffer<1024>> = MaybeUninit::uninit();
 static mut USB_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
 
-pub struct CommandReceiver {}
+pub struct UsbHandler {}
 
-impl CommandReceiver {
+impl UsbHandler {
     pub fn new(peripheral: Peripheral) -> Self {
         unsafe {
             let usb_bus = UsbBus::new(peripheral);
@@ -39,7 +39,7 @@ impl CommandReceiver {
             USB_RX_BUFFER = MaybeUninit::new(CobsBuffer::new(&mut USB_RX_RAW_BUFFER));
         }
 
-        let cmd_rcvr = CommandReceiver {};
+        let cmd_rcvr = UsbHandler {};
 
         unsafe {
             NVIC::unmask(Interrupt::USB_HP_CAN_TX);
@@ -49,7 +49,7 @@ impl CommandReceiver {
         cmd_rcvr
     }
 
-    pub fn run(&self) {
+    pub fn run<const N: usize>(&self, cmd_queue: &mut crate::tasks::CommandQueue<N>) {
         let rx_buffer = unsafe { USB_RX_BUFFER.assume_init_mut() };
         let mut cmd_buf = [0u8; 1024];
         if rx_buffer.data[0] == 0x00 && rx_buffer.data[1] == 0x00 {
@@ -57,11 +57,6 @@ impl CommandReceiver {
         }
 
         cortex_m::interrupt::free(|cs| {
-            // let cmd_bytes = rx_buffer.read_bytes(cs, &mut cmd_buf);
-            // defmt::info!("{}", cmd_bytes);
-            // for i in 0..cmd_bytes {
-            //     defmt::info!("{:x}", cmd_buf[i]);
-            // }
             let mut encoded_buf = [0u8; 4];
             let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
             match rx_buffer.read_packet(cs, &mut cmd_buf) {

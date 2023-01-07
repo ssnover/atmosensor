@@ -11,13 +11,16 @@ use stm32f1xx_hal::gpio::ExtiPin;
 use stm32f1xx_hal::gpio::Floating;
 use stm32f1xx_hal::gpio::Input;
 use stm32f1xx_hal::gpio::Output;
+use stm32f1xx_hal::gpio::Pin;
 use stm32f1xx_hal::gpio::PushPull;
 use stm32f1xx_hal::i2c::Mode;
 use stm32f1xx_hal::pac::{interrupt, Interrupt, NVIC};
 use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::{rcc::RccExt, usb::Peripheral};
 
+mod cmd_handlers;
 mod scd30;
+mod static_resources;
 mod tasks;
 mod utils;
 
@@ -26,7 +29,7 @@ static mut SCD_DATA_RDY_PIN: MaybeUninit<gpiob::PB0<Input<Floating>>> = MaybeUni
 
 #[entry]
 fn main() -> ! {
-    let device_peripherals = stm32f1xx_hal::pac::Peripherals::take().unwrap();
+    let mut device_peripherals = stm32f1xx_hal::pac::Peripherals::take().unwrap();
     let mut flash = device_peripherals.FLASH.constrain();
     let rcc = device_peripherals.RCC.constrain();
     // Set with the Clock Configuration tab of STM32CubeMX
@@ -56,13 +59,17 @@ fn main() -> ! {
         pin_dp: usb_dp.into_floating_input(&mut gpioa.crh),
     };
 
-    let cmd_rcvr = tasks::CommandReceiver::new(usb);
+    let mut cmd_buffer: [tasks::Command; 48] = [tasks::Command::Nop; 48];
+
+    let cmd_rcvr = tasks::UsbHandler::new(usb);
+    let mut cmd_queue = tasks::CommandQueue::new(&mut cmd_buffer);
 
     unsafe {
         RED_LED = Some(gpiob.pb8.into_push_pull_output(&mut gpiob.crh));
     }
 
-    let mut green_led = gpiob.pb7.into_push_pull_output(&mut gpiob.crl);
+    let green_led: Pin<'B', 7, Output<PushPull>> = gpiob.pb7.into_push_pull_output(&mut gpiob.crl);
+    cmd_handlers::led::init(green_led);
 
     let scl = gpiob.pb10.into_alternate_open_drain(&mut gpiob.crh);
     let sda = gpiob.pb11.into_alternate_open_drain(&mut gpiob.crh);
@@ -84,8 +91,8 @@ fn main() -> ! {
         let scd_data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
         *scd_data_rdy_pin = gpiob.pb0.into_floating_input(&mut gpiob.crl);
         scd_data_rdy_pin.make_interrupt_source(&mut afio);
-        scd_data_rdy_pin.trigger_on_edge(&device_peripherals.EXTI, Edge::Rising);
-        scd_data_rdy_pin.enable_interrupt(&device_peripherals.EXTI);
+        scd_data_rdy_pin.trigger_on_edge(&mut device_peripherals.EXTI, Edge::Rising);
+        scd_data_rdy_pin.enable_interrupt(&mut device_peripherals.EXTI);
     }
 
     unsafe {
@@ -93,7 +100,7 @@ fn main() -> ! {
     }
 
     loop {
-        cmd_rcvr.run();
+        cmd_rcvr.run(&mut cmd_queue);
         delay(clocks.sysclk().raw() / 10);
     }
 }

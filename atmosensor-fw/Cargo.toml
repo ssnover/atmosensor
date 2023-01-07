@@ -14,7 +14,8 @@ embedded-hal = "0.2.7"
 nb = "1"
 panic-halt = "0.2.0"
 panic-semihosting = "0.6.0"
-stm32f1xx-hal = { version = "0.9", features = ["rt", "stm32f103", "medium"] }
+stm32f1 = { version = "0.14.0", features = ["rt", "stm32f103"] }
+stm32f1xx-hal = { path = "../../stm32f1xx-hal", features = ["rt", "stm32f103", "medium"] }
 usb-device = "0.2.8"
 usbd-serial = "0.1.1"
 unwrap-infallible = "0.1.5"
