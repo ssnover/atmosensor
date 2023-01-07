@@ -12,6 +12,35 @@ pub enum UtilityCommand {
     DisableTestLed,
 }
 
+impl Command {
+    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
+        match buf[0] {
+            0xaa => {
+                Some(Command::Utility(UtilityCommand::from_bytes(&buf[1..])?))
+            },
+            _ => {
+                None
+            }
+        }
+    }
+}
+
+impl UtilityCommand {
+    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
+        match buf[0] {
+            0x00 => {
+                Some(UtilityCommand::EnableTestLed)
+            },
+            0x01 => {
+                Some(UtilityCommand::DisableTestLed)
+            }
+            _ => {
+                None
+            }
+        }
+    }
+}
+
 pub struct CommandQueue<'a, const N: usize> {
     elements: &'a mut [Command; N],
     write: usize,

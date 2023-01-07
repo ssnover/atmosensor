@@ -18,6 +18,24 @@
                     "parameters": []
                 }
             ]
+        },
+        {
+            "group": "Utility",
+            "number": 0xaa,
+            "commands": [
+                {
+                    "name": "EnableTestLed",
+                    "number": 0x00,
+                    "description": "Enable the onboard test LED",
+                    "parameters": []
+                },
+                {
+                    "name": "DisableTestLed",
+                    "number": 0x01,
+                    "description": "Disable the onboard test LED",
+                    "parameters": []
+                }
+            ]
         }
     ]
 }

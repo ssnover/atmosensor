@@ -1,4 +1,3 @@
-use core::convert::Infallible;
 use core::mem::MaybeUninit;
 use stm32f1xx_hal::gpio::Output;
 use stm32f1xx_hal::gpio::Pin;

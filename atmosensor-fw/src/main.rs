@@ -101,6 +101,7 @@ fn main() -> ! {
 
     loop {
         cmd_rcvr.run(&mut cmd_queue);
+        tasks::command_handler_run(&mut cmd_queue);
         delay(clocks.sysclk().raw() / 10);
     }
 }

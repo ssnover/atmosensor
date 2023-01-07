@@ -1,6 +1,5 @@
 use core::fmt::Debug;
 use embedded_hal::blocking::i2c::{Write, WriteRead};
-use nb::Error;
 
 pub const ADDRESS: u8 = 0x61;
 

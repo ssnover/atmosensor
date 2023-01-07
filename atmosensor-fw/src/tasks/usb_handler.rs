@@ -61,10 +61,14 @@ impl UsbHandler {
             let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
             match rx_buffer.read_packet(cs, &mut cmd_buf) {
                 Ok(cmd_bytes) => {
-                    if cmd_bytes >= 2 && cmd_buf[0] == 0xde && cmd_buf[1] == 0x00 {
-                        let encoded_bytes = cobs::encode(&[0xde, 0x01], &mut encoded_buf);
-                        let _ = serial.write(&encoded_buf[..encoded_bytes]);
-                        let _ = serial.flush();
+                    if cmd_bytes >= 2 {
+                        if cmd_buf[0] == 0xde && cmd_buf[1] == 0x00 {
+                            let encoded_bytes = cobs::encode(&[0xde, 0x01], &mut encoded_buf);
+                            let _ = serial.write(&encoded_buf[..encoded_bytes]);
+                            let _ = serial.flush();
+                        } else if let Some(cmd) = crate::tasks::Command::from_bytes(&cmd_buf[..]){
+                            cmd_queue.push(cmd).unwrap();
+                        }
                     }
                 }
                 _ => {}
