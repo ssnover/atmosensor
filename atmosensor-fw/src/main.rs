@@ -12,7 +12,6 @@ use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::{rcc::RccExt, usb::Peripheral};
 
 mod cmd_handlers;
-mod scd30;
 mod static_resources;
 mod tasks;
 mod utils;

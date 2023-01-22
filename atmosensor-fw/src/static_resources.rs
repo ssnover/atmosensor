@@ -10,7 +10,6 @@ use stm32f1xx_hal::i2c::BlockingI2c;
 use stm32f1xx_hal::pac::I2C2;
 
 use crate::tasks::CommandQueue;
-use crate::tasks::UsbHandler;
 
 // HARDWARE RESOURCES
 

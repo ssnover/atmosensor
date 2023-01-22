@@ -13,14 +13,14 @@ pub enum Command {
 
 #[derive(Copy, Clone)]
 pub enum SensorCommand {
-    SetMeasurementInterval{ MeasurementInterval: u16 },
+    SetMeasurementInterval { MeasurementInterval: u16 },
 }
 
 #[derive(Copy, Clone)]
 pub enum UtilityCommand {
     EnableTestLed,
     DisableTestLed,
-    GenericResponse{ Successful: bool },
+    GenericResponse { Successful: bool },
 }
 
 impl Command {
@@ -34,15 +34,15 @@ impl Command {
 
     pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
         if let Ok(bytes) = match self {
-            Command::Utility(cmd) => { 
+            Command::Utility(cmd) => {
                 buf[0] = 0xaa;
                 cmd.to_bytes(&mut buf[1..])
-            },
+            }
             Command::Sensor(cmd) => {
                 buf[0] = 0x01;
                 cmd.to_bytes(&mut buf[1..])
-            },
-            _ => Err(())
+            }
+            _ => Err(()),
         } {
             Ok(bytes + 1)
         } else {
@@ -62,12 +62,12 @@ impl UtilityCommand {
 
     pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
         match self {
-            UtilityCommand::GenericResponse{ Successful} => {
+            UtilityCommand::GenericResponse { Successful } => {
                 buf[0] = 0x02;
                 buf[1] = if *Successful { 0x01 } else { 0x00 };
                 Ok(2)
-            },
-            _ => return Err(())
+            }
+            _ => return Err(()),
         }
     }
 }
@@ -75,14 +75,16 @@ impl UtilityCommand {
 impl SensorCommand {
     pub fn from_bytes(buf: &[u8]) -> Option<Self> {
         match buf[0] {
-            0x00 => Some(SensorCommand::SetMeasurementInterval{ MeasurementInterval: read_u16(&buf[1..=2]) }),
+            0x00 => Some(SensorCommand::SetMeasurementInterval {
+                MeasurementInterval: read_u16(&buf[1..=2]),
+            }),
             _ => None,
         }
     }
 
     pub fn to_bytes(&self, _buf: &mut [u8]) -> Result<usize, ()> {
         match self {
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -159,11 +161,13 @@ impl CommandHandler {
                 }
                 Command::Utility(UtilityCommand::DisableTestLed) => {
                     cmd_handlers::led::disable_test_led();
-                },
-                Command::Sensor(SensorCommand::SetMeasurementInterval{ MeasurementInterval }) => {
+                }
+                Command::Sensor(SensorCommand::SetMeasurementInterval {
+                    MeasurementInterval,
+                }) => {
                     cmd_handlers::sensor::set_measurement_interval(MeasurementInterval);
-                },
-                _ => {},
+                }
+                _ => {}
             }
         }
     }

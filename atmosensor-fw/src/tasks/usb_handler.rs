@@ -83,7 +83,8 @@ impl UsbHandler {
         while let Some(cmd) = response_queue.pop() {
             unsafe {
                 if let Ok(cmd_bytes) = cmd.to_bytes(&mut NOT_ENCODED_YET_BUFFER) {
-                    let encoded_bytes = cobs::encode(&NOT_ENCODED_YET_BUFFER[..cmd_bytes], tx_buffer);
+                    let encoded_bytes =
+                        cobs::encode(&NOT_ENCODED_YET_BUFFER[..cmd_bytes], tx_buffer);
                     let _ = serial.write(&tx_buffer[..encoded_bytes]);
                     let _ = serial.flush();
                 }
