@@ -14,6 +14,7 @@ embedded-hal = "0.2.7"
 nb = "1"
 panic-halt = "0.2.0"
 panic-semihosting = "0.6.0"
+scd30 = { path = "../../scd30-rs" }
 stm32f1 = { version = "0.14.0", features = ["rt", "stm32f103"] }
 stm32f1xx-hal = { path = "../../stm32f1xx-hal", features = ["rt", "stm32f103", "medium"] }
 usb-device = "0.2.8"

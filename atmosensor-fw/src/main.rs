@@ -1,18 +1,11 @@
 #![no_std]
 #![no_main]
 
-use core::mem::MaybeUninit;
 use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use panic_semihosting as _;
-use stm32f1xx_hal::gpio::gpiob;
 use stm32f1xx_hal::gpio::Edge;
 use stm32f1xx_hal::gpio::ExtiPin;
-use stm32f1xx_hal::gpio::Floating;
-use stm32f1xx_hal::gpio::Input;
-use stm32f1xx_hal::gpio::Output;
-use stm32f1xx_hal::gpio::Pin;
-use stm32f1xx_hal::gpio::PushPull;
 use stm32f1xx_hal::i2c::Mode;
 use stm32f1xx_hal::pac::{interrupt, Interrupt, NVIC};
 use stm32f1xx_hal::prelude::*;
@@ -24,8 +17,7 @@ mod static_resources;
 mod tasks;
 mod utils;
 
-static mut RED_LED: Option<gpiob::PB8<Output<PushPull>>> = None;
-static mut SCD_DATA_RDY_PIN: MaybeUninit<gpiob::PB0<Input<Floating>>> = MaybeUninit::uninit();
+use static_resources::*;
 
 #[entry]
 fn main() -> ! {
@@ -59,22 +51,19 @@ fn main() -> ! {
         pin_dp: usb_dp.into_floating_input(&mut gpioa.crh),
     };
 
-    let mut cmd_buffer: [tasks::Command; 48] = [tasks::Command::Nop; 48];
-
-    let cmd_rcvr = tasks::UsbHandler::new(usb);
-    let mut cmd_queue = tasks::CommandQueue::new(&mut cmd_buffer);
-
+    let usb_handler = tasks::UsbHandler::new(usb);
+    unsafe { CMD_QUEUE.write(tasks::CommandQueue::new()) };
+    unsafe { USB_RESPONSE_QUEUE.write(tasks::CommandQueue::new()) };
     unsafe {
-        RED_LED = Some(gpiob.pb8.into_push_pull_output(&mut gpiob.crh));
+        ERROR_LED.write(gpiob.pb8.into_push_pull_output(&mut gpiob.crh));
     }
 
-    let green_led: Pin<'B', 7, Output<PushPull>> = gpiob.pb7.into_push_pull_output(&mut gpiob.crl);
-    cmd_handlers::led::init(green_led);
+    unsafe { TEST_LED.write(gpiob.pb7.into_push_pull_output(&mut gpiob.crl)) };
 
     let scl = gpiob.pb10.into_alternate_open_drain(&mut gpiob.crh);
     let sda = gpiob.pb11.into_alternate_open_drain(&mut gpiob.crh);
 
-    let mut i2c = stm32f1xx_hal::i2c::I2c::i2c2(
+    let i2c = stm32f1xx_hal::i2c::I2c::i2c2(
         device_peripherals.I2C2,
         (scl, sda),
         Mode::Standard {
@@ -83,25 +72,27 @@ fn main() -> ! {
         clocks,
     )
     .blocking(1000, 10, 1000, 1000, clocks);
+    unsafe {
+        I2C_BUS.write(i2c);
+    };
 
-    let scd_sensor = scd30::Scd30::new();
-    let _ = scd_sensor.soft_reset(&mut i2c);
-
-    {
-        let scd_data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
-        *scd_data_rdy_pin = gpiob.pb0.into_floating_input(&mut gpiob.crl);
-        scd_data_rdy_pin.make_interrupt_source(&mut afio);
-        scd_data_rdy_pin.trigger_on_edge(&mut device_peripherals.EXTI, Edge::Rising);
-        scd_data_rdy_pin.enable_interrupt(&mut device_peripherals.EXTI);
+    let mut scd_data_rdy_pin = gpiob.pb0.into_floating_input(&mut gpiob.crl);
+    scd_data_rdy_pin.make_interrupt_source(&mut afio);
+    scd_data_rdy_pin.trigger_on_edge(&mut device_peripherals.EXTI, Edge::Rising);
+    scd_data_rdy_pin.enable_interrupt(&mut device_peripherals.EXTI);
+    unsafe {
+        SCD_DATA_RDY_PIN.write(scd_data_rdy_pin);
     }
 
     unsafe {
         NVIC::unmask(Interrupt::EXTI0);
     }
 
+    let command_handler = tasks::CommandHandler::new();
+
     loop {
-        cmd_rcvr.run(&mut cmd_queue);
-        tasks::command_handler_run(&mut cmd_queue);
+        usb_handler.run();
+        command_handler.run();
         delay(clocks.sysclk().raw() / 10);
     }
 }
@@ -110,7 +101,6 @@ fn main() -> ! {
 fn EXTI0() {
     let data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
     if data_rdy_pin.check_interrupt() {
-        unsafe { RED_LED.as_mut().unwrap().toggle() };
         data_rdy_pin.clear_interrupt_pending_bit();
     }
 }

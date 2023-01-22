@@ -7,6 +7,7 @@ use stm32f1xx_hal::{
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
+use crate::static_resources::{CMD_QUEUE, USB_RESPONSE_QUEUE};
 use crate::utils::CobsBuffer;
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
@@ -17,6 +18,7 @@ static mut USB_TX_BUFFER: MaybeUninit<CobsBuffer<1024>> = MaybeUninit::uninit();
 static mut USB_RX_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
 static mut USB_RX_BUFFER: MaybeUninit<CobsBuffer<1024>> = MaybeUninit::uninit();
 static mut USB_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
+static mut NOT_ENCODED_YET_BUFFER: [u8; 256] = [0u8; 256];
 
 pub struct UsbHandler {}
 
@@ -49,7 +51,7 @@ impl UsbHandler {
         cmd_rcvr
     }
 
-    pub fn run<const N: usize>(&self, cmd_queue: &mut crate::tasks::CommandQueue<N>) {
+    pub fn run(&self) {
         let rx_buffer = unsafe { USB_RX_BUFFER.assume_init_mut() };
         let mut cmd_buf = [0u8; 1024];
         if rx_buffer.data[0] == 0x00 && rx_buffer.data[1] == 0x00 {
@@ -66,14 +68,27 @@ impl UsbHandler {
                             let encoded_bytes = cobs::encode(&[0xde, 0x01], &mut encoded_buf);
                             let _ = serial.write(&encoded_buf[..encoded_bytes]);
                             let _ = serial.flush();
-                        } else if let Some(cmd) = crate::tasks::Command::from_bytes(&cmd_buf[..]){
-                            cmd_queue.push(cmd).unwrap();
+                        } else if let Some(cmd) = crate::tasks::Command::from_bytes(&cmd_buf[..]) {
+                            unsafe { CMD_QUEUE.assume_init_mut().push(cmd).unwrap() };
                         }
                     }
                 }
                 _ => {}
             }
         });
+
+        let response_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
+        let tx_buffer = unsafe { &mut USB_TX_RAW_BUFFER };
+        let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
+        while let Some(cmd) = response_queue.pop() {
+            unsafe {
+                if let Ok(cmd_bytes) = cmd.to_bytes(&mut NOT_ENCODED_YET_BUFFER) {
+                    let encoded_bytes = cobs::encode(&NOT_ENCODED_YET_BUFFER[..cmd_bytes], tx_buffer);
+                    let _ = serial.write(&tx_buffer[..encoded_bytes]);
+                    let _ = serial.flush();
+                }
+            }
+        }
     }
 }
 

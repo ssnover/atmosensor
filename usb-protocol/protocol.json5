@@ -2,6 +2,118 @@
     "version": "0.1.0",
     "groups": [
         {
+            "group": "Sensor",
+            "number": 0x01,
+            "commands": [
+                {
+                    "name": "SetMeasurementInterval",
+                    "number": 0x00,
+                    "description": "Set the interval between measurements by the sensor",
+                    "parameters": [
+                        {
+                            "name": "MeasurementInterval",
+                            "type": "u16",
+                            "description": "Time in seconds between measurements"
+                        }
+                    ]
+                },
+                {
+                    "name": "SetAltitude",
+                    "number": 0x01,
+                    "description": "Set the altitude at which the sensor is operating, helps with accuracy",
+                    "parameters": [
+                        {
+                            "name": "Altitude",
+                            "type": "u16",
+                            "description": "Height in meters above sea level"
+                        }
+                    ]
+                },
+                {
+                    "name": "SetTemperatureOffset",
+                    "number": 0x02,
+                    "description": "Sets a temperature offset to account for self-heating of the RHT sensor",
+                    "parameters": [
+                        {
+                            "name": "TemperatureOffset",
+                            "type": "u16",
+                            "description": "Offset in one-hundredths of degrees Celsius"
+                        }
+                    ]
+                },
+                {
+                    "name": "StartContinuousMeasurement",
+                    "number": 0x03,
+                    "description": "Starts measuring data following initialization at the set interval",
+                    "parameters": [
+                    ]
+                },
+                {
+                    "name": "ReportNewData",
+                    "number": 0x04,
+                    "description": "Report to the host that new data is available for reading",
+                    "parameters": []
+                },
+                {
+                    "name": "RequestLastCO2Data",
+                    "number": 0x05,
+                    "description": "Requests the most recent CO2 measurement from the SCD30",
+                    "parameters": []
+                },
+                {
+                    "name": "LastCO2DataResponse",
+                    "associated_request": "RequestLastCO2Data",
+                    "number": 0x06,
+                    "description": "Most recent CO2 data from the sensor",
+                    "parameters": [
+                        {
+                            "name": "CO2Data",
+                            "type": "u16",
+                            "description": "CO2 measurement in parts per million (ppm)"
+                        }
+                    ]
+                },
+                {
+                    "name": "RequestLastTemperature",
+                    "number": 0x07,
+                    "description": "Requests the most recent temperature measurement from the SCD30",
+                    "parameters": [
+                    ]
+                },
+                {
+                    "name": "LastTemperatureResponse",
+                    "associated_request": "RequestLastTemperature",
+                    "number": 0x08,
+                    "description": "Most recent temperature data from the sensor",
+                    "parameters": [
+                        {
+                            "name": "Temperature",
+                            "type": "i16",
+                            "description": "Temperature measurement in degrees Celsius"
+                        }
+                    ]
+                },
+                {
+                    "name": "RequestLastHumidity",
+                    "number": 0x09,
+                    "description": "Requests the most recent relative humidity value",
+                    "parameters": []
+                },
+                {
+                    "name": "LastHumidityResponse",
+                    "number": 0x0a,
+                    "description": "Most recent relative humidity data",
+                    "parameters": [
+                        {
+                            "name": "RelativeHumidity",
+                            "type": "u16",
+                            "description": "Relative humidity as a percentage multiplied by 10 [0, 1000]"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "group": "Debug",
             "number": 0xde,
             "commands": [
@@ -34,6 +146,23 @@
                     "number": 0x01,
                     "description": "Disable the onboard test LED",
                     "parameters": []
+                },
+                {
+                    "name": "GenericResponse",
+                    "number": 0x02,
+                    "description": "Success or failure response to the previous command of a given type",
+                    "parameters": [
+                        {
+                            "name": "CommandNumber",
+                            "type": "u16",
+                            "description": "The command number being responded to, since I'm too lazy to add it to the base protocol"
+                        },
+                        {
+                            "name": "Successful",
+                            "type": "bool",
+                            "description": "If the request was successful or not"
+                        }
+                    ]
                 }
             ]
         }

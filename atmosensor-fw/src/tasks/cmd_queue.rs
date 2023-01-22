@@ -1,26 +1,52 @@
-use crate::cmd_handlers;
+use crate::{cmd_handlers, static_resources::CMD_QUEUE};
+
+fn read_u16(buf: &[u8]) -> u16 {
+    ((buf[0] as u16) << 8) | buf[1] as u16
+}
 
 #[derive(Copy, Clone)]
 pub enum Command {
     Nop,
+    Sensor(SensorCommand),
     Utility(UtilityCommand),
+}
+
+#[derive(Copy, Clone)]
+pub enum SensorCommand {
+    SetMeasurementInterval{ MeasurementInterval: u16 },
 }
 
 #[derive(Copy, Clone)]
 pub enum UtilityCommand {
     EnableTestLed,
     DisableTestLed,
+    GenericResponse{ Successful: bool },
 }
 
 impl Command {
     pub fn from_bytes(buf: &[u8]) -> Option<Self> {
         match buf[0] {
-            0xaa => {
-                Some(Command::Utility(UtilityCommand::from_bytes(&buf[1..])?))
+            0xaa => Some(Command::Utility(UtilityCommand::from_bytes(&buf[1..])?)),
+            0x01 => Some(Command::Sensor(SensorCommand::from_bytes(&buf[1..])?)),
+            _ => None,
+        }
+    }
+
+    pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
+        if let Ok(bytes) = match self {
+            Command::Utility(cmd) => { 
+                buf[0] = 0xaa;
+                cmd.to_bytes(&mut buf[1..])
             },
-            _ => {
-                None
-            }
+            Command::Sensor(cmd) => {
+                buf[0] = 0x01;
+                cmd.to_bytes(&mut buf[1..])
+            },
+            _ => Err(())
+        } {
+            Ok(bytes + 1)
+        } else {
+            Err(())
         }
     }
 }
@@ -28,29 +54,49 @@ impl Command {
 impl UtilityCommand {
     pub fn from_bytes(buf: &[u8]) -> Option<Self> {
         match buf[0] {
-            0x00 => {
-                Some(UtilityCommand::EnableTestLed)
+            0x00 => Some(UtilityCommand::EnableTestLed),
+            0x01 => Some(UtilityCommand::DisableTestLed),
+            _ => None,
+        }
+    }
+
+    pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
+        match self {
+            UtilityCommand::GenericResponse{ Successful} => {
+                buf[0] = 0x02;
+                buf[1] = if *Successful { 0x01 } else { 0x00 };
+                Ok(2)
             },
-            0x01 => {
-                Some(UtilityCommand::DisableTestLed)
-            }
-            _ => {
-                None
-            }
+            _ => return Err(())
         }
     }
 }
 
-pub struct CommandQueue<'a, const N: usize> {
-    elements: &'a mut [Command; N],
+impl SensorCommand {
+    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
+        match buf[0] {
+            0x00 => Some(SensorCommand::SetMeasurementInterval{ MeasurementInterval: read_u16(&buf[1..=2]) }),
+            _ => None,
+        }
+    }
+
+    pub fn to_bytes(&self, _buf: &mut [u8]) -> Result<usize, ()> {
+        match self {
+            _ => Err(())
+        }
+    }
+}
+
+pub struct CommandQueue<const N: usize> {
+    elements: [Command; N],
     write: usize,
     read: usize,
 }
 
-impl<'a, const N: usize> CommandQueue<'a, N> {
-    pub fn new(buf: &'a mut [Command; N]) -> Self {
+impl<const N: usize> CommandQueue<N> {
+    pub fn new() -> Self {
         Self {
-            elements: buf,
+            elements: [Command::Nop; N],
             write: 0,
             read: 0,
         }
@@ -97,15 +143,27 @@ impl<'a, const N: usize> CommandQueue<'a, N> {
     }
 }
 
-pub fn command_handler_run<'a, const N: usize>(cmd_queue: &mut CommandQueue<'a, N>) {
-    if let Some(cmd) = cmd_queue.pop() {
-        match cmd {
-            Command::Nop => {}
-            Command::Utility(UtilityCommand::EnableTestLed) => {
-                cmd_handlers::led::enable_test_led();
-            }
-            Command::Utility(UtilityCommand::DisableTestLed) => {
-                cmd_handlers::led::disable_test_led();
+pub struct CommandHandler {}
+
+impl CommandHandler {
+    pub fn new() -> Self {
+        CommandHandler {}
+    }
+
+    pub fn run(&self) {
+        if let Some(cmd) = unsafe { CMD_QUEUE.assume_init_mut().pop() } {
+            match cmd {
+                Command::Nop => {}
+                Command::Utility(UtilityCommand::EnableTestLed) => {
+                    cmd_handlers::led::enable_test_led();
+                }
+                Command::Utility(UtilityCommand::DisableTestLed) => {
+                    cmd_handlers::led::disable_test_led();
+                },
+                Command::Sensor(SensorCommand::SetMeasurementInterval{ MeasurementInterval }) => {
+                    cmd_handlers::sensor::set_measurement_interval(MeasurementInterval);
+                },
+                _ => {},
             }
         }
     }
