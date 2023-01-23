@@ -11,14 +11,11 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
- "embedded-hal",
- "nb 1.0.0",
  "panic-halt",
  "panic-semihosting",
  "scd30",
  "stm32f1 0.14.0",
  "stm32f1xx-hal",
- "unwrap-infallible",
  "usb-device",
  "usbd-serial",
 ]
@@ -297,6 +294,7 @@ dependencies = [
 [[package]]
 name = "scd30"
 version = "0.4.0"
+source = "git+https://github.com/ssnover/scd30-rs?branch=shared-i2c#25030d5d33959d58c1aa9c0ddbb7a597e3c95d7a"
 dependencies = [
  "crc_all",
  "embedded-hal",
@@ -383,6 +381,7 @@ dependencies = [
 [[package]]
 name = "stm32f1xx-hal"
 version = "0.10.0"
+source = "git+https://github.com/stm32-rs/stm32f1xx-hal?rev=21c64d8#21c64d861c29a97753a22afdd06daaea614592c6"
 dependencies = [
  "bitflags",
  "bxcan",
@@ -414,12 +413,6 @@ name = "unicode-ident"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ceab39d59e4c9499d4e5a8ee0e2735b891bb7308ac83dfb4e80cad195c9f6f3"
-
-[[package]]
-name = "unwrap-infallible"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "151ac09978d3c2862c4e39b557f4eceee2cc72150bc4cb4f16abf061b6e381fb"
 
 [[package]]
 name = "usb-device"

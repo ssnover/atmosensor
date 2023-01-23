@@ -3,23 +3,19 @@ name = "atmosensor-stm32"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 bare-metal = "1.0.0"
 cobs = { version = "0.2", default-features = false }
 cortex-m = "0.7.6"
 cortex-m-rt = "0.7.1"
 cortex-m-semihosting = "0.5.0"
-embedded-hal = "0.2.7"
-nb = "1"
 panic-halt = "0.2.0"
 panic-semihosting = "0.6.0"
-scd30 = { path = "../../scd30-rs" }
+scd30 = { git = "https://github.com/ssnover/scd30-rs", branch = "shared-i2c" }
 stm32f1 = { version = "0.14.0", features = ["rt", "stm32f103"] }
-stm32f1xx-hal = { path = "../../stm32f1xx-hal", features = ["rt", "stm32f103", "medium"] }
+stm32f1xx-hal = { git = "https://github.com/stm32-rs/stm32f1xx-hal", rev = "21c64d8", features = ["rt", "stm32f103", "medium"] }
 usb-device = "0.2.8"
 usbd-serial = "0.1.1"
-unwrap-infallible = "0.1.5"
 
 [features]
 default = ["bluepill"]
