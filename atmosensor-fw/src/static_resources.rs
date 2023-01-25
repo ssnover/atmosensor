@@ -1,4 +1,5 @@
 use core::mem::MaybeUninit;
+use embedded_hal::blocking::i2c::{Read, Write};
 use stm32f1xx_hal::gpio::Alternate;
 use stm32f1xx_hal::gpio::Floating;
 use stm32f1xx_hal::gpio::Input;
@@ -25,6 +26,17 @@ pub static mut I2C_BUS: MaybeUninit<
     >,
 > = MaybeUninit::uninit();
 pub static mut SCD_DATA_RDY_PIN: MaybeUninit<Pin<'B', 0, Input<Floating>>> = MaybeUninit::uninit();
+
+pub trait I2cWriteAndRead<E>: Read<Error = E> + Write<Error = E> {}
+impl<E, T: Read<Error = E> + Write<Error = E>> I2cWriteAndRead<E> for T {}
+
+#[inline]
+pub unsafe fn with_i2c_bus<F, R>(f: F) -> R
+where 
+    F: FnOnce(&mut dyn I2cWriteAndRead<stm32f1xx_hal::i2c::Error>) -> R,
+{
+    f(I2C_BUS.assume_init_mut())
+}
 
 // SOFTWARE RESOURCES
 

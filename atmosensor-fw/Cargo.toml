@@ -9,6 +9,7 @@ cobs = { version = "0.2", default-features = false }
 cortex-m = "0.7.6"
 cortex-m-rt = "0.7.1"
 cortex-m-semihosting = "0.5.0"
+embedded-hal = { features = ["unproven"], version = "0.2.7" }
 panic-halt = "0.2.0"
 panic-semihosting = "0.6.0"
 scd30 = { git = "https://github.com/ssnover/scd30-rs", branch = "shared-i2c" }
