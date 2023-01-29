@@ -81,9 +81,7 @@ pub fn handle_request_co2_data() {
             CO2Data: last_co2_data,
         })
     } else {
-        Command::Utility(UtilityCommand::GenericResponse {
-            Successful: false,
-        })
+        Command::Utility(UtilityCommand::GenericResponse { Successful: false })
     };
     send_usb_msg(&msg);
 }

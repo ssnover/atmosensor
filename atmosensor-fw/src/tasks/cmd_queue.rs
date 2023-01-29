@@ -1,5 +1,5 @@
-use crate::tasks::{Command, SensorCommand, UtilityCommand};
 use crate::cmd_handlers;
+use crate::tasks::{Command, SensorCommand, UtilityCommand};
 
 static mut CMD_QUEUE: CommandQueue<48> = CommandQueue::new();
 

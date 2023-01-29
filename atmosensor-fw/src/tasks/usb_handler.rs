@@ -7,8 +7,8 @@ use stm32f1xx_hal::{
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
+use crate::tasks::{push_new_cmd, Command, CommandQueue};
 use crate::utils::CobsBuffer;
-use crate::tasks::{Command, CommandQueue, push_new_cmd};
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
 static mut USB_SERIAL: Option<SerialPort<UsbBusType>> = None;
@@ -29,9 +29,7 @@ pub fn send_usb_msg(cmd: &Command) {
 }
 
 fn get_next_outbound_usb_msg() -> Option<Command> {
-    critical_section::with(|_cs| {
-        unsafe { USB_RESPONSE_QUEUE.pop() }
-    })
+    critical_section::with(|_cs| unsafe { USB_RESPONSE_QUEUE.pop() })
 }
 
 pub struct UsbHandler {}
@@ -74,9 +72,7 @@ impl UsbHandler {
 
         let mut encoded_buf = [0u8; 4];
         let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
-        let packet = critical_section::with(|cs| {
-            rx_buffer.read_packet(&cs, &mut cmd_buf)
-        });
+        let packet = critical_section::with(|cs| rx_buffer.read_packet(&cs, &mut cmd_buf));
 
         match packet {
             Ok(cmd_bytes) => {
