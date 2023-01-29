@@ -11,10 +11,11 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
+ "crc_all",
  "embedded-hal",
+ "heapless",
  "panic-halt",
  "panic-semihosting",
- "scd30",
  "stm32f1 0.14.0",
  "stm32f1xx-hal",
  "usb-device",
@@ -281,16 +282,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
 dependencies = [
  "semver 1.0.16",
-]
-
-[[package]]
-name = "scd30"
-version = "0.4.0"
-source = "git+https://github.com/ssnover/scd30-rs?branch=shared-i2c#4c0ba322a4a473ef728b141af7d7360db95f1a47"
-dependencies = [
- "crc_all",
- "embedded-hal",
- "heapless",
 ]
 
 [[package]]

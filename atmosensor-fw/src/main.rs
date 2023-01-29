@@ -12,11 +12,13 @@ use stm32f1xx_hal::prelude::*;
 use stm32f1xx_hal::{rcc::RccExt, usb::Peripheral};
 
 mod cmd_handlers;
+mod drivers;
 mod static_resources;
 mod tasks;
 mod utils;
 
 use static_resources::*;
+use tasks::{Command, SensorCommand};
 
 #[entry]
 fn main() -> ! {
@@ -100,6 +102,8 @@ fn main() -> ! {
 fn EXTI0() {
     let data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
     if data_rdy_pin.check_interrupt() {
+        let cmd_queue = unsafe { CMD_QUEUE.assume_init_mut() };
+        let _ = cmd_queue.push(Command::Sensor(SensorCommand::ReportNewData));
         data_rdy_pin.clear_interrupt_pending_bit();
     }
 }

@@ -1,93 +1,5 @@
+use crate::tasks::{Command, SensorCommand, UtilityCommand};
 use crate::{cmd_handlers, static_resources::CMD_QUEUE};
-
-fn read_u16(buf: &[u8]) -> u16 {
-    ((buf[0] as u16) << 8) | buf[1] as u16
-}
-
-#[derive(Copy, Clone)]
-pub enum Command {
-    Nop,
-    Sensor(SensorCommand),
-    Utility(UtilityCommand),
-}
-
-#[derive(Copy, Clone)]
-pub enum SensorCommand {
-    SetMeasurementInterval { MeasurementInterval: u16 },
-}
-
-#[derive(Copy, Clone)]
-pub enum UtilityCommand {
-    EnableTestLed,
-    DisableTestLed,
-    GenericResponse { Successful: bool },
-}
-
-impl Command {
-    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
-        match buf[0] {
-            0xaa => Some(Command::Utility(UtilityCommand::from_bytes(&buf[1..])?)),
-            0x01 => Some(Command::Sensor(SensorCommand::from_bytes(&buf[1..])?)),
-            _ => None,
-        }
-    }
-
-    pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
-        if let Ok(bytes) = match self {
-            Command::Utility(cmd) => {
-                buf[0] = 0xaa;
-                cmd.to_bytes(&mut buf[1..])
-            }
-            Command::Sensor(cmd) => {
-                buf[0] = 0x01;
-                cmd.to_bytes(&mut buf[1..])
-            }
-            _ => Err(()),
-        } {
-            Ok(bytes + 1)
-        } else {
-            Err(())
-        }
-    }
-}
-
-impl UtilityCommand {
-    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
-        match buf[0] {
-            0x00 => Some(UtilityCommand::EnableTestLed),
-            0x01 => Some(UtilityCommand::DisableTestLed),
-            _ => None,
-        }
-    }
-
-    pub fn to_bytes(&self, buf: &mut [u8]) -> Result<usize, ()> {
-        match self {
-            UtilityCommand::GenericResponse { Successful } => {
-                buf[0] = 0x02;
-                buf[1] = if *Successful { 0x01 } else { 0x00 };
-                Ok(2)
-            }
-            _ => return Err(()),
-        }
-    }
-}
-
-impl SensorCommand {
-    pub fn from_bytes(buf: &[u8]) -> Option<Self> {
-        match buf[0] {
-            0x00 => Some(SensorCommand::SetMeasurementInterval {
-                MeasurementInterval: read_u16(&buf[1..=2]),
-            }),
-            _ => None,
-        }
-    }
-
-    pub fn to_bytes(&self, _buf: &mut [u8]) -> Result<usize, ()> {
-        match self {
-            _ => Err(()),
-        }
-    }
-}
 
 pub struct CommandQueue<const N: usize> {
     elements: [Command; N],
@@ -166,6 +78,21 @@ impl CommandHandler {
                     MeasurementInterval,
                 }) => {
                     cmd_handlers::sensor::set_measurement_interval(MeasurementInterval);
+                }
+                Command::Sensor(SensorCommand::SetAltitude { Altitude }) => {
+                    cmd_handlers::sensor::set_altitude(Altitude);
+                }
+                Command::Sensor(SensorCommand::SetTemperatureOffset { TemperatureOffset }) => {
+                    cmd_handlers::sensor::set_temperature_offset(TemperatureOffset);
+                }
+                Command::Sensor(SensorCommand::StartContinuousMeasurement) => {
+                    cmd_handlers::sensor::start_continuous_measurement();
+                }
+                Command::Sensor(SensorCommand::ReportNewData) => {
+                    cmd_handlers::sensor::handle_data_ready();
+                }
+                Command::Sensor(SensorCommand::RequestLastCO2Data) => {
+                    cmd_handlers::sensor::handle_request_co2_data();
                 }
                 _ => {}
             }

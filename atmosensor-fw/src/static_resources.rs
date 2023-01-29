@@ -32,7 +32,7 @@ impl<E, T: Read<Error = E> + Write<Error = E>> I2cWriteAndRead<E> for T {}
 
 #[inline]
 pub unsafe fn with_i2c_bus<F, R>(f: F) -> R
-where 
+where
     F: FnOnce(&mut dyn I2cWriteAndRead<stm32f1xx_hal::i2c::Error>) -> R,
 {
     f(I2C_BUS.assume_init_mut())
