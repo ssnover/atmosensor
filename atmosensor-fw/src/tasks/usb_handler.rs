@@ -7,8 +7,8 @@ use stm32f1xx_hal::{
 use usb_device::{bus::UsbBusAllocator, prelude::*};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
-use crate::static_resources::{CMD_QUEUE, USB_RESPONSE_QUEUE};
 use crate::utils::CobsBuffer;
+use crate::tasks::{Command, CommandQueue, push_new_cmd};
 
 static mut USB_BUS: Option<UsbBusAllocator<UsbBusType>> = None;
 static mut USB_SERIAL: Option<SerialPort<UsbBusType>> = None;
@@ -19,6 +19,20 @@ static mut USB_RX_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
 static mut USB_RX_BUFFER: MaybeUninit<CobsBuffer<1024>> = MaybeUninit::uninit();
 static mut USB_RAW_BUFFER: [u8; 1024] = [0u8; 1024];
 static mut NOT_ENCODED_YET_BUFFER: [u8; 256] = [0u8; 256];
+
+static mut USB_RESPONSE_QUEUE: CommandQueue<12> = CommandQueue::new();
+
+pub fn send_usb_msg(cmd: &Command) {
+    critical_section::with(|_cs| {
+        let _ = unsafe { USB_RESPONSE_QUEUE.push(*cmd) };
+    })
+}
+
+fn get_next_outbound_usb_msg() -> Option<Command> {
+    critical_section::with(|_cs| {
+        unsafe { USB_RESPONSE_QUEUE.pop() }
+    })
+}
 
 pub struct UsbHandler {}
 
@@ -58,29 +72,31 @@ impl UsbHandler {
             return;
         }
 
-        cortex_m::interrupt::free(|cs| {
-            let mut encoded_buf = [0u8; 4];
-            let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
-            match rx_buffer.read_packet(cs, &mut cmd_buf) {
-                Ok(cmd_bytes) => {
-                    if cmd_bytes >= 2 {
-                        if cmd_buf[0] == 0xde && cmd_buf[1] == 0x00 {
-                            let encoded_bytes = cobs::encode(&[0xde, 0x01], &mut encoded_buf);
-                            let _ = serial.write(&encoded_buf[..encoded_bytes]);
-                            let _ = serial.flush();
-                        } else if let Some(cmd) = crate::tasks::Command::from_bytes(&cmd_buf[..]) {
-                            unsafe { CMD_QUEUE.assume_init_mut().push(cmd).unwrap() };
-                        }
-                    }
-                }
-                _ => {}
-            }
+        let mut encoded_buf = [0u8; 4];
+        let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
+        let packet = critical_section::with(|cs| {
+            rx_buffer.read_packet(&cs, &mut cmd_buf)
         });
 
-        let response_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
+        match packet {
+            Ok(cmd_bytes) => {
+                if cmd_bytes >= 2 {
+                    if cmd_buf[0] == 0xde && cmd_buf[1] == 0x00 {
+                        let encoded_bytes = cobs::encode(&[0xde, 0x01], &mut encoded_buf);
+                        let _ = serial.write(&encoded_buf[..encoded_bytes]);
+                        let _ = serial.flush();
+                    } else if let Some(cmd) = crate::tasks::Command::from_bytes(&cmd_buf[..]) {
+                        push_new_cmd(&cmd);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        let usb_msg = get_next_outbound_usb_msg();
         let tx_buffer = unsafe { &mut USB_TX_RAW_BUFFER };
         let serial = unsafe { USB_SERIAL.as_mut().unwrap() };
-        while let Some(cmd) = response_queue.pop() {
+        if let Some(cmd) = usb_msg {
             unsafe {
                 if let Ok(cmd_bytes) = cmd.to_bytes(&mut NOT_ENCODED_YET_BUFFER) {
                     let encoded_bytes =
@@ -111,10 +127,10 @@ fn usb_interrupt() {
         return;
     }
 
-    cortex_m::interrupt::free(|cs| unsafe {
+    critical_section::with(|cs| unsafe {
         let rx_buffer = USB_RX_BUFFER.assume_init_mut();
         if let Ok(bytes_read) = serial.read(&mut USB_RAW_BUFFER) {
-            rx_buffer.write_bytes(cs, &USB_RAW_BUFFER[..bytes_read]);
+            rx_buffer.write_bytes(&cs, &USB_RAW_BUFFER[..bytes_read]);
         }
     });
 }

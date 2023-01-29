@@ -1,5 +1,11 @@
 use crate::tasks::{Command, SensorCommand, UtilityCommand};
-use crate::{cmd_handlers, static_resources::CMD_QUEUE};
+use crate::cmd_handlers;
+
+static mut CMD_QUEUE: CommandQueue<48> = CommandQueue::new();
+
+pub fn push_new_cmd(cmd: &Command) {
+    let _ = critical_section::with(|_cs| unsafe { CMD_QUEUE.push(*cmd) });
+}
 
 pub struct CommandQueue<const N: usize> {
     elements: [Command; N],
@@ -8,7 +14,7 @@ pub struct CommandQueue<const N: usize> {
 }
 
 impl<const N: usize> CommandQueue<N> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             elements: [Command::Nop; N],
             write: 0,
@@ -65,7 +71,8 @@ impl CommandHandler {
     }
 
     pub fn run(&self) {
-        if let Some(cmd) = unsafe { CMD_QUEUE.assume_init_mut().pop() } {
+        let cmd = critical_section::with(|_cs| unsafe { CMD_QUEUE.pop() });
+        if let Some(cmd) = cmd {
             match cmd {
                 Command::Nop => {}
                 Command::Utility(UtilityCommand::EnableTestLed) => {

@@ -10,8 +10,6 @@ use stm32f1xx_hal::gpio::PushPull;
 use stm32f1xx_hal::i2c::BlockingI2c;
 use stm32f1xx_hal::pac::I2C2;
 
-use crate::tasks::CommandQueue;
-
 // HARDWARE RESOURCES
 
 pub static mut ERROR_LED: MaybeUninit<Pin<'B', 8, Output<PushPull>>> = MaybeUninit::uninit();
@@ -37,8 +35,3 @@ where
 {
     f(I2C_BUS.assume_init_mut())
 }
-
-// SOFTWARE RESOURCES
-
-pub static mut CMD_QUEUE: MaybeUninit<CommandQueue<48>> = MaybeUninit::uninit();
-pub static mut USB_RESPONSE_QUEUE: MaybeUninit<CommandQueue<12>> = MaybeUninit::uninit();

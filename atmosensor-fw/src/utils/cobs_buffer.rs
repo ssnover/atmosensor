@@ -1,5 +1,5 @@
 use core::cmp::Ordering;
-use cortex_m::interrupt::CriticalSection;
+use critical_section::CriticalSection;
 
 pub struct CobsBuffer<'a, const N: usize> {
     pub data: &'a mut [u8; N],

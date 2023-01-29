@@ -1,6 +1,6 @@
 use crate::drivers;
 use crate::static_resources::with_i2c_bus;
-use crate::static_resources::USB_RESPONSE_QUEUE;
+use crate::tasks::send_usb_msg;
 use crate::tasks::Command;
 use crate::tasks::{SensorCommand, UtilityCommand};
 
@@ -13,8 +13,7 @@ pub fn set_measurement_interval(interval_s: u16) {
             scd_sensor.set_measurement_interval(interval_s).is_ok()
         })
     };
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    let _ = usb_queue.push(Command::Utility(UtilityCommand::GenericResponse {
+    send_usb_msg(&Command::Utility(UtilityCommand::GenericResponse {
         Successful: is_successful,
     }));
 }
@@ -26,8 +25,7 @@ pub fn set_altitude(altitude_m: u16) {
             scd_sensor.set_altitude(altitude_m).is_ok()
         })
     };
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    let _ = usb_queue.push(Command::Utility(UtilityCommand::GenericResponse {
+    send_usb_msg(&Command::Utility(UtilityCommand::GenericResponse {
         Successful: is_successful,
     }));
 }
@@ -39,8 +37,7 @@ pub fn set_temperature_offset(temp_offset: u16) {
             scd_sensor.set_temperature_offset(temp_offset).is_ok()
         })
     };
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    let _ = usb_queue.push(Command::Utility(UtilityCommand::GenericResponse {
+    send_usb_msg(&Command::Utility(UtilityCommand::GenericResponse {
         Successful: is_successful,
     }));
 }
@@ -52,8 +49,7 @@ pub fn start_continuous_measurement() {
             scd_sensor.start_measuring().is_ok()
         })
     };
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    let _ = usb_queue.push(Command::Utility(UtilityCommand::GenericResponse {
+    send_usb_msg(&Command::Utility(UtilityCommand::GenericResponse {
         Successful: is_successful,
     }));
 
@@ -76,20 +72,18 @@ pub fn handle_data_ready() {
             }
         })
     };
-
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    let _ = usb_queue.push(Command::Sensor(SensorCommand::ReportNewData));
+    send_usb_msg(&Command::Sensor(SensorCommand::ReportNewData));
 }
 
 pub fn handle_request_co2_data() {
-    let usb_queue = unsafe { USB_RESPONSE_QUEUE.assume_init_mut() };
-    if let Some(last_co2_data) = unsafe { LAST_CO2_READING } {
-        let _ = usb_queue.push(Command::Sensor(SensorCommand::LastCO2DataResponse {
+    let msg = if let Some(last_co2_data) = unsafe { LAST_CO2_READING } {
+        Command::Sensor(SensorCommand::LastCO2DataResponse {
             CO2Data: last_co2_data,
-        }));
+        })
     } else {
-        let _ = usb_queue.push(Command::Utility(UtilityCommand::GenericResponse {
+        Command::Utility(UtilityCommand::GenericResponse {
             Successful: false,
-        }));
-    }
+        })
+    };
+    send_usb_msg(&msg);
 }

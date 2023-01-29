@@ -18,6 +18,7 @@ mod tasks;
 mod utils;
 
 use static_resources::*;
+use tasks::push_new_cmd;
 use tasks::{Command, SensorCommand};
 
 #[entry]
@@ -53,8 +54,6 @@ fn main() -> ! {
     };
 
     let usb_handler = tasks::UsbHandler::new(usb);
-    unsafe { CMD_QUEUE.write(tasks::CommandQueue::new()) };
-    unsafe { USB_RESPONSE_QUEUE.write(tasks::CommandQueue::new()) };
     unsafe {
         ERROR_LED.write(gpiob.pb8.into_push_pull_output(&mut gpiob.crh));
     }
@@ -102,8 +101,7 @@ fn main() -> ! {
 fn EXTI0() {
     let data_rdy_pin = unsafe { &mut *SCD_DATA_RDY_PIN.as_mut_ptr() };
     if data_rdy_pin.check_interrupt() {
-        let cmd_queue = unsafe { CMD_QUEUE.assume_init_mut() };
-        let _ = cmd_queue.push(Command::Sensor(SensorCommand::ReportNewData));
+        push_new_cmd(&Command::Sensor(SensorCommand::ReportNewData));
         data_rdy_pin.clear_interrupt_pending_bit();
     }
 }
