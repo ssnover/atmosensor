@@ -1,0 +1,16 @@
+#[derive(Clone, Debug)]
+pub struct {{ command.name }} {
+    {% for param in command.parameters -%}
+        {{ param.name }}: {{ param.type }},
+    {%- endfor %}
+}
+
+impl {{ command.name }} {
+    pub fn from_bytes(buf: &[u8]) -> Self {
+        todo!()
+    }
+
+    pub fn to_bytes(self) -> Vec<u8> {
+        todo!()
+    }
+}

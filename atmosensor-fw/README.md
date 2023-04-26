@@ -18,3 +18,16 @@ Data comes from the Sensirion SCD30 sensor and the Bosch BME680. I've
 forked each of these crates in order to add support for more messages
 or to modify how they utilize their I2C driver (cannot take ownership 
 since both devices are on the same bus).
+
+## Building the application
+Build the cross-compile docker environment:
+```sh
+atmosensor$ docker build -t atmosensor-xcompile docker/fw-cross-compile/
+```
+
+Run the cross-compiler:
+```sh
+atmosensor$ docker run -v `pwd`/atmosensor-fw:/app -t atmosensor-xcompile
+```
+
+The app binary will be located at: `atmosensor-fw/target/thumbv7m-none-eabi/release/atmosensor-stm32`

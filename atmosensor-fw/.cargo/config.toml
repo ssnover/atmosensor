@@ -1,9 +1,9 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 runner = "probe-run --chip STM32F103C8Tx"
-rustflags = [
-  "-C", "linker=flip-link",
-  "-C", "link-arg=-Tlink.x",
-]
+rustflags = ["-C", "linker=flip-link", "-C", "link-arg=-Tlink.x"]
 
 [build]
 target = "thumbv7m-none-eabi"
+
+#[registries.crates-io]
+#protocol = "sparse"
