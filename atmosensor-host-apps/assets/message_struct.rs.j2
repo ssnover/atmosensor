@@ -6,9 +6,19 @@ pub struct {{ command.name }} {
 }
 
 impl {{ command.name }} {
+    #[allow(unused)]
     pub fn from_bytes(buf: &[u8]) -> Self {
+        {% if command.parameters|length != 0 %}
+            let mut cursor = Cursor::new(buf);
+        {%- endif %}
+
         {% for param in command.parameters -%}
-            let {{ param.name|param_case }} = {{ param.type }}::from_be_bytes(buf);
+            let {{ param.name|param_case }} = 
+            {% if param.type == 'bool' %}
+                cursor.read_u8().unwrap() != 0;
+            {% else %}
+                cursor.read_{{ param.type }}::<BigEndian>().unwrap();
+            {%- endif %}
         {%- endfor %}
 
         Self {
@@ -23,7 +33,11 @@ impl {{ command.name }} {
         out.push({{ group }}_u8);
         out.push({{ command.number }}_u8);
         {% for param in command.parameters -%}
-            out.push(self.{{ param.name|param_case }}.to_be_bytes());
+            {% if param.type == 'bool' %}
+                out.push(self.{{ param.name|param_case }} as u8);
+            {% else %}
+                out.extend_from_slice(&self.{{ param.name|param_case }}.to_be_bytes());
+            {%- endif %}
         {%- endfor %}
         out
     }

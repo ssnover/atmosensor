@@ -20,6 +20,7 @@ name = "protocol-generator"
 path = "src/bin/protocol_generator.rs"
 
 [dependencies]
+byteorder = "1.4"
 clap = { version = "4.2", features = ["derive"] }
 cobs = "0.2"
 convert_case = "0.6"

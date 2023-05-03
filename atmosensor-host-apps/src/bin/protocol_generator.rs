@@ -20,13 +20,13 @@ struct Args {
     output_file: PathBuf,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct ProtocolFile {
     version: String,
     groups: Vec<CommandGroup>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct CommandGroup {
     group: String,
     number: u8,
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tmpl = env.get_template("module").unwrap();
     let module_definition = tmpl
-        .render(context! { commands => command_definitions })
+        .render(context! { protocol => protocol, commands => command_definitions })
         .unwrap();
     let module_definition = format_rust_source(&module_definition);
 

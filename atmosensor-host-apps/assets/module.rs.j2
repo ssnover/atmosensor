@@ -1,3 +1,38 @@
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt};
+
+pub enum Command {
+    {% for group in protocol.groups -%}
+        {% for command in group.commands -%}
+            {{ command.name }}({{ command.name }}),
+        {%- endfor %}
+    {%- endfor %}
+}
+
+impl Command {
+    pub fn from_bytes(buf: &[u8]) -> Self {
+        match (buf[0], buf[1]) {
+            {% for group in protocol.groups -%}
+                {% for command in group.commands -%}
+                    ({{group.number}}, {{ command.number }}) => Command::{{ command.name }}({{ command.name }}::from_bytes(&buf[2..])),
+                {%- endfor %}
+            {%- endfor %}
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn to_bytes(self) -> Vec<u8> {
+        match self {
+            {% for group in protocol.groups -%}
+                {% for command in group.commands -%}
+                    Command::{{ command.name }}(inner) => inner.to_bytes(),
+                {%- endfor %}
+            {%- endfor %}
+        }
+    }
+}
+
 {% for cmd in commands -%}
     {{ cmd }}
+
 {% endfor %}

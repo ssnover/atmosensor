@@ -3,7 +3,7 @@ use tokio::io::{ReadHalf, WriteHalf};
 use tokio_serial::SerialStream;
 
 pub mod mock;
-//pub mod protocol;
+pub mod protocol;
 
 pub struct Atmosensor {
     writer: Writer,
