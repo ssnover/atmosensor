@@ -124,7 +124,7 @@
                     "parameters": []
                 },
                 {
-                    "name": "Ping Response",
+                    "name": "PingResponse",
                     "number": 0x01,
                     "description": "Response from the application firmware",
                     "parameters": []

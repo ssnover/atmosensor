@@ -1,16 +1,30 @@
 #[derive(Clone, Debug)]
 pub struct {{ command.name }} {
     {% for param in command.parameters -%}
-        {{ param.name }}: {{ param.type }},
+        pub {{ param.name|param_case }}: {{ param.type }},
     {%- endfor %}
 }
 
 impl {{ command.name }} {
     pub fn from_bytes(buf: &[u8]) -> Self {
-        todo!()
+        {% for param in command.parameters -%}
+            let {{ param.name|param_case }} = {{ param.type }}::from_be_bytes(buf);
+        {%- endfor %}
+
+        Self {
+            {% for param in command.parameters -%}
+                {{ param.name|param_case }},
+            {%- endfor %}
+        }
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        todo!()
+        let mut out = vec![];
+        out.push({{ group }}_u8);
+        out.push({{ command.number }}_u8);
+        {% for param in command.parameters -%}
+            out.push(self.{{ param.name|param_case }}.to_be_bytes());
+        {%- endfor %}
+        out
     }
 }
