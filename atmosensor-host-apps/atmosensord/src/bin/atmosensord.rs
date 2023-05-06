@@ -8,9 +8,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tty_path = args.nth(1).unwrap_or(DEFAULT_TTY.to_string());
 
     let port = tokio_serial::new(tty_path, 115200).open_native_async()?;
-    let mut atmosensor = Atmosensor::new(port);
+    let (_reader, mut writer) = Atmosensor::new(port).split();
 
-    atmosensor.send_bytes(&[0x01, 0x03]).await?;
+    writer.send_raw(&[0x01, 0x03]).await?;
 
     Ok(())
 }

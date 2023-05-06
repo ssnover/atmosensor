@@ -24,8 +24,8 @@ impl Atmosensor {
         (self.reader, self.writer)
     }
 
-    pub async fn send_bytes(&mut self, data: &[u8]) -> std::io::Result<()> {
-        self.writer.send_bytes(data).await
+    pub async fn send(&mut self, cmd: Command) -> std::io::Result<()> {
+        self.writer.send(cmd).await
     }
 
     pub async fn receive_next(&mut self, timeout: std::time::Duration) -> Option<Command> {
@@ -97,10 +97,10 @@ impl Writer {
     }
 
     pub async fn send(&mut self, cmd: Command) -> std::io::Result<()> {
-        self.send_bytes(&cmd.to_bytes()).await
+        self.send_raw(&cmd.to_bytes()).await
     }
 
-    pub async fn send_bytes(&mut self, data: &[u8]) -> std::io::Result<()> {
+    pub async fn send_raw(&mut self, data: &[u8]) -> std::io::Result<()> {
         let bytes_encoded = cobs::encode(data, &mut *self.encoded_tx_buffer);
         self.encoded_tx_buffer[bytes_encoded] = 0x00;
         self.write_stream

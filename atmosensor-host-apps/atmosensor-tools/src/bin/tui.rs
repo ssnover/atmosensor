@@ -1,12 +1,11 @@
+use atmosensor::Atmosensor;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::collections::VecDeque;
-use std::marker::Unpin;
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_serial::SerialPortBuilderExt;
 use tui::{
     backend::{Backend, CrosstermBackend},
@@ -202,7 +201,7 @@ async fn run_io_context(
     let port = tokio_serial::new(tty_path, 115200)
         .open_native_async()
         .unwrap();
-    let (reader, writer) = tokio::io::split(port);
+    let (reader, writer) = Atmosensor::new(port).split();
 
     tokio::select! {
         _ = io_receive(reader, messages.clone()) => {
@@ -214,53 +213,25 @@ async fn run_io_context(
     };
 }
 
-async fn io_receive<R: AsyncReadExt + Unpin>(
-    mut reader: R,
-    messages: Arc<Mutex<VecDeque<Message>>>,
-) {
-    // Read data from serial port, cobs decode, and drop new messages into the queue
-    let mut rx_buffer = [0u8; 1024];
-    let mut decoded_rx_buffer = [0u8; 1024];
+async fn io_receive(mut reader: atmosensor::Reader, messages: Arc<Mutex<VecDeque<Message>>>) {
     loop {
-        if let Ok(bytes_read) = reader.read(&mut rx_buffer).await {
-            if let Ok(bytes_decoded) =
-                cobs::decode(&rx_buffer[..bytes_read], &mut decoded_rx_buffer)
-            {
-                let mut msg_queue = messages.lock().unwrap();
-                msg_queue.push_back(Message::Received {
-                    data: decoded_rx_buffer[..bytes_decoded].into(),
-                });
-            } else {
-                let mut msg_queue = messages.lock().unwrap();
-                msg_queue.push_back(Message::Error {
-                    inner: format!(
-                        "cobs decode failed: {}",
-                        bytes_to_hex_str(&rx_buffer[..bytes_read])
-                    ),
-                });
-            }
-        }
+        let data = reader.receive_raw().await;
+        let mut msg_queue = messages.lock().unwrap();
+        msg_queue.push_back(Message::Received { data });
     }
 }
 
-async fn io_send<W: AsyncWriteExt + Unpin>(
-    mut writer: W,
+async fn io_send(
+    mut writer: atmosensor::Writer,
     mut rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
     messages: Arc<Mutex<VecDeque<Message>>>,
 ) {
-    let mut encoded_tx_buffer = [0u8; 1024];
-    // When we get new messages on the channel, cobs encode, and send over the serial port
     while let Some(msg) = rcvr.recv().await {
-        let bytes_encoded = cobs::encode(&msg[..], &mut encoded_tx_buffer);
-
-        if let Err(err) = writer.write_all(&encoded_tx_buffer[..bytes_encoded]).await {
+        if let Err(err) = writer.send_raw(&msg[..]).await {
             let mut messages = messages.lock().unwrap();
             messages.push_back(Message::Error {
                 inner: format!("{err:?}"),
             });
-        } else {
-            // The CobsDecoder class requires a termination byte in order to complete
-            let _bytes_written = writer.write(&[0x00]).await.unwrap();
         }
     }
 }

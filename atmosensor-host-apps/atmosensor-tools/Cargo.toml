@@ -12,8 +12,8 @@ name = "protocol-generator"
 path = "src/bin/protocol_generator.rs"
 
 [dependencies]
+atmosensor = { path = "../atmosensord" }
 clap = { version = "4.2", features = ["derive"] }
-cobs = "0.2"
 convert_case = "0.6"
 crossterm = "0.25"
 json5 = "0.4"

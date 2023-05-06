@@ -82,7 +82,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "atmosensor-host-apps"
+name = "atmosensor"
 version = "0.1.0"
 dependencies = [
  "byteorder",
@@ -98,8 +98,8 @@ dependencies = [
 name = "atmosensor-tools"
 version = "0.1.0"
 dependencies = [
+ "atmosensor",
  "clap",
- "cobs",
  "convert_case",
  "crossterm",
  "json5",
