@@ -20,7 +20,7 @@ echo "Generating Rust module for protocol..."
 cd atmosensor-host-apps
 cargo run --bin protocol-generator -- \
 -p ../usb-protocol/protocol.json5 \
--o src/protocol.rs
+-o src/protocol/autogen.rs
 
 echo "Done"
 

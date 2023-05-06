@@ -1,0 +1,26 @@
+[package]
+name = "atmosensor-tools"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "atmosensor-tui"
+path = "src/bin/tui.rs"
+
+[[bin]]
+name = "protocol-generator"
+path = "src/bin/protocol_generator.rs"
+
+[dependencies]
+clap = { version = "4.2", features = ["derive"] }
+cobs = "0.2"
+convert_case = "0.6"
+crossterm = "0.25"
+json5 = "0.4"
+minijinja = "0.32"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.21", features = ["full"] }
+tokio-serial = "5.4"
+tui = { version = "0.19", features = ["crossterm"] }
+unicode-width = "0.1"

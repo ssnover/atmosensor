@@ -1,3 +1,5 @@
+#![allow(clippy::vec_init_then_push)]
+
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io::Cursor;
 

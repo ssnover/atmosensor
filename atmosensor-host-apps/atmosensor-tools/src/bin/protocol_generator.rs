@@ -69,13 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let command_definitions = protocol
         .groups
         .iter()
-        .map(|grp| {
+        .flat_map(|grp| {
             grp.commands.iter().map(|cmd| {
                 tmpl.render(context! { group => grp.number, command => cmd })
                     .unwrap()
             })
         })
-        .flatten()
         .collect::<Vec<_>>();
 
     let tmpl = env.get_template("module").unwrap();
@@ -84,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
     let module_definition = format_rust_source(&module_definition);
 
-    std::fs::write(&args.output_file, &module_definition.as_bytes())?;
+    std::fs::write(&args.output_file, module_definition.as_bytes())?;
 
     Ok(())
 }

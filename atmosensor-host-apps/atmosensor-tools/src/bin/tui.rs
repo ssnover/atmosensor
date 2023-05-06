@@ -17,13 +17,13 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-const HEX_CHARS: &'static str = "ABCDEFabcdef0123456789";
+const HEX_CHARS: &str = "ABCDEFabcdef0123456789";
 
 fn hex_char_to_val(ch: char) -> u8 {
     match ch {
-        '0'..='9' => (ch as u8) - ('0' as u8),
-        'A'..='F' => (ch as u8) - ('A' as u8) + 10u8,
-        'a'..='f' => (ch as u8) - ('a' as u8) + 10u8,
+        '0'..='9' => (ch as u8) - (b'0'),
+        'A'..='F' => (ch as u8) - (b'A') + 10u8,
+        'a'..='f' => (ch as u8) - (b'a') + 10u8,
         _ => unreachable!(),
     }
 }
@@ -46,8 +46,8 @@ fn hex_str_to_bytes(hex_str: &[char]) -> Option<Vec<u8>> {
 fn nibble_to_hex_char(nibble: u8) -> u8 {
     assert_eq!(nibble, nibble & 0xF);
     match nibble {
-        0..=9 => ('0' as u8) + (nibble),
-        0xa..=0xf => ('a' as u8) + (nibble - 10),
+        0..=9 => (b'0') + (nibble),
+        0xa..=0xf => (b'a') + (nibble - 10),
         _ => unreachable!(),
     }
 }
@@ -62,8 +62,7 @@ fn byte_to_hex_str(byte: u8) -> [u8; 2] {
 fn bytes_to_hex_str(data: &[u8]) -> String {
     String::from_utf8(
         data.iter()
-            .map(|byte| byte_to_hex_str(*byte))
-            .flatten()
+            .flat_map(|byte| byte_to_hex_str(*byte))
             .collect::<Vec<u8>>(),
     )
     .unwrap()
@@ -78,10 +77,10 @@ enum Message {
 
 impl ToString for Message {
     fn to_string(&self) -> String {
-        match &self {
-            &Message::Sent { data } => format!("tx {}", bytes_to_hex_str(&data[..])),
-            &Message::Received { data } => format!("rx {}", bytes_to_hex_str(&data[..])),
-            &Message::Error { inner } => format!("err {}", inner),
+        match self {
+            Message::Sent { data } => format!("tx {}", bytes_to_hex_str(&data[..])),
+            Message::Received { data } => format!("rx {}", bytes_to_hex_str(&data[..])),
+            Message::Error { inner } => format!("err {}", inner),
         }
     }
 }
@@ -115,7 +114,7 @@ impl ApplicationState {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const DEFAULT_TTY: &'static str = "/dev/ttyACM0";
+    const DEFAULT_TTY: &str = "/dev/ttyACM0";
     let mut args = std::env::args();
     let tty_path = args.nth(1).unwrap_or(DEFAULT_TTY.to_string());
 
@@ -261,7 +260,7 @@ async fn io_send<W: AsyncWriteExt + Unpin>(
             });
         } else {
             // The CobsDecoder class requires a termination byte in order to complete
-            writer.write(&[0x00]).await.unwrap();
+            let _bytes_written = writer.write(&[0x00]).await.unwrap();
         }
     }
 }
