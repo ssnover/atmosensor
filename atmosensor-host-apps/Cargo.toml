@@ -1,2 +1,2 @@
 [workspace]
-members = ["atmosensord", "atmosensor-tools"]
+members = ["atmosensord", "atmosensor-client", "atmosensor-tools"]

@@ -1,4 +1,5 @@
-use atmosensor::Atmosensor;
+use atmosensor_client::Atmosensor;
+use atmosensor_tools::{bytes_to_hex_str, hex_str_to_bytes, is_hex_char};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
@@ -6,7 +7,6 @@ use crossterm::{
 use std::collections::VecDeque;
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
-use tokio_serial::SerialPortBuilderExt;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
@@ -15,57 +15,6 @@ use tui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 use unicode_width::UnicodeWidthStr;
-
-const HEX_CHARS: &str = "ABCDEFabcdef0123456789";
-
-fn hex_char_to_val(ch: char) -> u8 {
-    match ch {
-        '0'..='9' => (ch as u8) - (b'0'),
-        'A'..='F' => (ch as u8) - (b'A') + 10u8,
-        'a'..='f' => (ch as u8) - (b'a') + 10u8,
-        _ => unreachable!(),
-    }
-}
-
-fn hex_str_to_bytes(hex_str: &[char]) -> Option<Vec<u8>> {
-    if hex_str.len() % 2 == 0 {
-        Some(
-            hex_str
-                .iter()
-                .step_by(2)
-                .zip(hex_str.iter().skip(1).step_by(2))
-                .map(|(a, b)| (hex_char_to_val(*a) << 4) | hex_char_to_val(*b))
-                .collect::<Vec<u8>>(),
-        )
-    } else {
-        None
-    }
-}
-
-fn nibble_to_hex_char(nibble: u8) -> u8 {
-    assert_eq!(nibble, nibble & 0xF);
-    match nibble {
-        0..=9 => (b'0') + (nibble),
-        0xa..=0xf => (b'a') + (nibble - 10),
-        _ => unreachable!(),
-    }
-}
-
-fn byte_to_hex_str(byte: u8) -> [u8; 2] {
-    [
-        nibble_to_hex_char(byte >> 4),
-        nibble_to_hex_char(byte & 0xF),
-    ]
-}
-
-fn bytes_to_hex_str(data: &[u8]) -> String {
-    String::from_utf8(
-        data.iter()
-            .flat_map(|byte| byte_to_hex_str(*byte))
-            .collect::<Vec<u8>>(),
-    )
-    .unwrap()
-}
 
 #[derive(Clone)]
 enum Message {
@@ -177,7 +126,7 @@ fn run_ui_context<B: Backend>(
                     app_state.input = String::new();
                 }
                 KeyCode::Char(ch) => {
-                    if HEX_CHARS.contains(ch) {
+                    if is_hex_char(ch) {
                         // Only accept characters which are valid in hexadecimal
                         app_state.input.push(ch);
                     }
@@ -198,10 +147,7 @@ async fn run_io_context(
     rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
     messages: Arc<Mutex<VecDeque<Message>>>,
 ) {
-    let port = tokio_serial::new(tty_path, 115200)
-        .open_native_async()
-        .unwrap();
-    let (reader, writer) = Atmosensor::new(port).split();
+    let (reader, writer) = Atmosensor::new(tty_path).unwrap().split();
 
     tokio::select! {
         _ = io_receive(reader, messages.clone()) => {
@@ -213,7 +159,10 @@ async fn run_io_context(
     };
 }
 
-async fn io_receive(mut reader: atmosensor::Reader, messages: Arc<Mutex<VecDeque<Message>>>) {
+async fn io_receive(
+    mut reader: atmosensor_client::Reader,
+    messages: Arc<Mutex<VecDeque<Message>>>,
+) {
     loop {
         let data = reader.receive_raw().await;
         let mut msg_queue = messages.lock().unwrap();
@@ -222,7 +171,7 @@ async fn io_receive(mut reader: atmosensor::Reader, messages: Arc<Mutex<VecDeque
 }
 
 async fn io_send(
-    mut writer: atmosensor::Writer,
+    mut writer: atmosensor_client::Writer,
     mut rcvr: tokio::sync::mpsc::Receiver<Vec<u8>>,
     messages: Arc<Mutex<VecDeque<Message>>>,
 ) {
