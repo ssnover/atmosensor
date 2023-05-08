@@ -1,0 +1,1 @@
+SUBSYSTEMS=="usb", ACTION=="add", ATTRS{manufacturer}=="Snostorm Labs", ATTRS{idProduct}=="27dd", SYMLINK+="atmosensor"
