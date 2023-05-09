@@ -67,7 +67,11 @@ impl Reader {
                 ) {
                     // todo: Revisit failure cases here
                     break Command::from_bytes(&self.decoded_rx_buffer[..bytes_decoded]);
+                } else {
+                    log::error!("Failed to decode {bytes_read} bytes");
                 }
+            } else {
+                log::error!("Failed to read from the serial port");
             }
         }
     }
@@ -80,7 +84,11 @@ impl Reader {
                     &mut *self.decoded_rx_buffer,
                 ) {
                     break Vec::from(&self.decoded_rx_buffer[..bytes_decoded]);
+                } else {
+                    log::error!("Failed to decode {bytes_read} bytes");
                 }
+            } else {
+                log::error!("Failed to read from the serial port");
             }
         }
     }

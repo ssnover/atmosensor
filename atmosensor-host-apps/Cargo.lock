@@ -116,6 +116,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "cobs",
+ "log",
  "serde",
  "serde_json",
  "tokio",

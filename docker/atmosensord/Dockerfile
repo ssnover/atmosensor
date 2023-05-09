@@ -24,4 +24,3 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=atmosensord-build /app/target/release/atmosensord atmosensord
-ENTRYPOINT ["./atmosensord"]
