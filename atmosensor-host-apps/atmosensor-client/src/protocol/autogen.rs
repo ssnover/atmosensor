@@ -1,8 +1,9 @@
-#![allow(clippy::vec_init_then_push)]
+#![allow(unused_mut)]
 
 use byteorder::{BigEndian, ReadBytesExt};
 use std::io::Cursor;
 
+#[derive(Clone, Debug)]
 pub enum Command {
     SetMeasurementInterval(SetMeasurementInterval),
     SetAltitude(SetAltitude),
@@ -93,9 +94,7 @@ impl SetMeasurementInterval {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(0_u8);
+        let mut out = vec![1_u8, 0_u8];
 
         out.extend_from_slice(&self.measurement_interval.to_be_bytes());
         out
@@ -118,9 +117,7 @@ impl SetAltitude {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(1_u8);
+        let mut out = vec![1_u8, 1_u8];
 
         out.extend_from_slice(&self.altitude.to_be_bytes());
         out
@@ -143,9 +140,7 @@ impl SetTemperatureOffset {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(2_u8);
+        let mut out = vec![1_u8, 2_u8];
 
         out.extend_from_slice(&self.temperature_offset.to_be_bytes());
         out
@@ -162,9 +157,7 @@ impl StartContinuousMeasurement {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(3_u8);
+        let mut out = vec![1_u8, 3_u8];
 
         out
     }
@@ -180,9 +173,7 @@ impl ReportNewData {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(4_u8);
+        let mut out = vec![1_u8, 4_u8];
 
         out
     }
@@ -198,9 +189,7 @@ impl RequestLastCO2Data {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(5_u8);
+        let mut out = vec![1_u8, 5_u8];
 
         out
     }
@@ -222,9 +211,7 @@ impl LastCO2DataResponse {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(6_u8);
+        let mut out = vec![1_u8, 6_u8];
 
         out.extend_from_slice(&self.co_2_data.to_be_bytes());
         out
@@ -241,9 +228,7 @@ impl RequestLastTemperature {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(7_u8);
+        let mut out = vec![1_u8, 7_u8];
 
         out
     }
@@ -265,9 +250,7 @@ impl LastTemperatureResponse {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(8_u8);
+        let mut out = vec![1_u8, 8_u8];
 
         out.extend_from_slice(&self.temperature.to_be_bytes());
         out
@@ -284,9 +267,7 @@ impl RequestLastHumidity {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(9_u8);
+        let mut out = vec![1_u8, 9_u8];
 
         out
     }
@@ -308,9 +289,7 @@ impl LastHumidityResponse {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(1_u8);
-        out.push(10_u8);
+        let mut out = vec![1_u8, 10_u8];
 
         out.extend_from_slice(&self.relative_humidity.to_be_bytes());
         out
@@ -327,9 +306,7 @@ impl Ping {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(222_u8);
-        out.push(0_u8);
+        let mut out = vec![222_u8, 0_u8];
 
         out
     }
@@ -345,9 +322,7 @@ impl PingResponse {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(222_u8);
-        out.push(1_u8);
+        let mut out = vec![222_u8, 1_u8];
 
         out
     }
@@ -363,9 +338,7 @@ impl EnableTestLed {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(170_u8);
-        out.push(0_u8);
+        let mut out = vec![170_u8, 0_u8];
 
         out
     }
@@ -381,9 +354,7 @@ impl DisableTestLed {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(170_u8);
-        out.push(1_u8);
+        let mut out = vec![170_u8, 1_u8];
 
         out
     }
@@ -391,7 +362,6 @@ impl DisableTestLed {
 
 #[derive(Clone, Debug)]
 pub struct GenericResponse {
-    pub command_number: u16,
     pub successful: bool,
 }
 
@@ -400,21 +370,14 @@ impl GenericResponse {
     pub fn from_bytes(buf: &[u8]) -> Self {
         let mut cursor = Cursor::new(buf);
 
-        let command_number = cursor.read_u16::<BigEndian>().unwrap();
         let successful = cursor.read_u8().unwrap() != 0;
 
-        Self {
-            command_number,
-            successful,
-        }
+        Self { successful }
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push(170_u8);
-        out.push(2_u8);
+        let mut out = vec![170_u8, 2_u8];
 
-        out.extend_from_slice(&self.command_number.to_be_bytes());
         out.push(self.successful as u8);
 
         out

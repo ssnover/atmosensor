@@ -153,11 +153,6 @@
                     "description": "Success or failure response to the previous command of a given type",
                     "parameters": [
                         {
-                            "name": "CommandNumber",
-                            "type": "u16",
-                            "description": "The command number being responded to, since I'm too lazy to add it to the base protocol"
-                        },
-                        {
                             "name": "Successful",
                             "type": "bool",
                             "description": "If the request was successful or not"

@@ -29,9 +29,7 @@ impl {{ command.name }} {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut out = vec![];
-        out.push({{ group }}_u8);
-        out.push({{ command.number }}_u8);
+        let mut out = vec![{{ group }}_u8, {{ command.number }}_u8];
         {% for param in command.parameters -%}
             {% if param.type == 'bool' %}
                 out.push(self.{{ param.name|param_case }} as u8);

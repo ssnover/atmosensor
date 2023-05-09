@@ -1,4 +1,4 @@
-use atmosensor::protocol::Command;
+use atmosensor::protocol::{Command, LastCO2DataResponse};
 use atmosensor_client::{self as atmosensor, Atmosensor};
 use chrono::Utc;
 use futures::prelude::*;
@@ -24,6 +24,7 @@ struct InfluxConfig<'a> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     const DEFAULT_TTY: &str = "/dev/ttyACM0";
     let mut args = std::env::args();
     let tty_path = args.nth(1).unwrap_or(DEFAULT_TTY.to_string());
@@ -47,29 +48,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ))
                     .await
                     .unwrap();
-                let mut response = reader.receive().await;
-                while !matches!(response, Command::LastCO2DataResponse(..)) {
-                    response = reader.receive().await;
-                }
-                if let Command::LastCO2DataResponse(atmosensor::protocol::LastCO2DataResponse {
-                    co_2_data,
-                }) = response
+            }
+            Command::LastCO2DataResponse(LastCO2DataResponse { co_2_data }) => {
+                let co2_data_points = vec![CO2Data {
+                    location: "living_room".into(),
+                    value: co_2_data.into(),
+                    time: Utc::now().timestamp_nanos(),
+                }];
+                if let Ok(..) = influx_client
+                    .write(influx_cfg.bucket, stream::iter(co2_data_points))
+                    .await
                 {
-                    let co2_data_points = vec![CO2Data {
-                        location: "living_room".into(),
-                        value: co_2_data.into(),
-                        time: Utc::now().timestamp_nanos(),
-                    }];
-                    if let Ok(..) = influx_client
-                        .write(influx_cfg.bucket, stream::iter(co2_data_points))
-                        .await
-                    {
-                        println!("Writing data... {}", co_2_data);
-                    }
+                    log::info!("Writing data... {}", co_2_data);
                 }
             }
-            _ => {
-                eprintln!("Unhandled command")
+            other => {
+                log::warn!("Unhandled command: {other:?}");
             }
         }
     }

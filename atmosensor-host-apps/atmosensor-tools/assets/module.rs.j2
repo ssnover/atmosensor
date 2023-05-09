@@ -1,6 +1,9 @@
+#![allow(unused_mut)]
+
 use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt};
 
+#[derive(Clone, Debug)]
 pub enum Command {
     {% for group in protocol.groups -%}
         {% for command in group.commands -%}
