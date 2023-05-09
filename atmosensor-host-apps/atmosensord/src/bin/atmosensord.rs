@@ -1,4 +1,4 @@
-use atmosensor::protocol::{Command, LastCO2DataResponse};
+use atmosensor::protocol::{Command, DisableTestLed, EnableTestLed, LastCO2DataResponse};
 use atmosensor_client::{self as atmosensor, Atmosensor};
 use chrono::Utc;
 use futures::prelude::*;
@@ -39,9 +39,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ))
         .await?;
 
+    let mut led_state = false;
+
     loop {
-        match reader.receive().await {
-            Command::ReportNewData(_) => {
+        match reader
+            .receive_next(std::time::Duration::from_millis(500))
+            .await
+        {
+            Some(Command::ReportNewData(_)) => {
                 writer
                     .send(Command::RequestLastCO2Data(
                         atmosensor::protocol::RequestLastCO2Data {},
@@ -49,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await
                     .unwrap();
             }
-            Command::LastCO2DataResponse(LastCO2DataResponse { co_2_data }) => {
+            Some(Command::LastCO2DataResponse(LastCO2DataResponse { co_2_data })) => {
                 let co2_data_points = vec![CO2Data {
                     location: "living_room".into(),
                     value: co_2_data.into(),
@@ -62,8 +67,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     log::info!("Writing data... {}", co_2_data);
                 }
             }
-            other => {
+            Some(other) => {
                 log::warn!("Unhandled command: {other:?}");
+            }
+            None => {
+                log::warn!("Timed out");
+                led_state = !led_state;
+                if led_state {
+                    writer
+                        .send(Command::EnableTestLed(EnableTestLed {}))
+                        .await
+                        .unwrap();
+                } else {
+                    writer
+                        .send(Command::DisableTestLed(DisableTestLed {}))
+                        .await
+                        .unwrap();
+                }
             }
         }
     }
