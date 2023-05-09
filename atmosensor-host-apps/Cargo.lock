@@ -146,6 +146,7 @@ version = "0.1.0"
 dependencies = [
  "atmosensor-client",
  "chrono",
+ "ctrlc",
  "env_logger",
  "futures",
  "influxdb2",
@@ -392,6 +393,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ctrlc"
+version = "3.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbcf33c2a618cbe41ee43ae6e9f2e48368cd9f9db2896f10167d8d762679f639"
+dependencies = [
+ "nix 0.26.2",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]

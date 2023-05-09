@@ -3,6 +3,10 @@ use atmosensor_client::{self as atmosensor, Atmosensor};
 use chrono::Utc;
 use futures::prelude::*;
 use influxdb2_derive::WriteDataPoint;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 #[derive(WriteDataPoint)]
 #[measurement = "co2_ppm"]
@@ -25,6 +29,14 @@ struct InfluxConfig<'a> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })
+    .unwrap();
+
     const DEFAULT_TTY: &str = "/dev/ttyACM0";
     let mut args = std::env::args();
     let tty_path = args.nth(1).unwrap_or(DEFAULT_TTY.to_string());
@@ -41,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut led_state = false;
 
-    loop {
+    while running.load(Ordering::SeqCst) {
         match reader
             .receive_next(std::time::Duration::from_millis(500))
             .await
@@ -87,6 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+
+    Ok(())
 }
 
 fn initialize_influx_config() -> InfluxConfig<'static> {
