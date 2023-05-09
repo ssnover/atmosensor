@@ -1,4 +1,6 @@
-use atmosensor::protocol::{Command, DisableTestLed, EnableTestLed, LastCO2DataResponse};
+use atmosensor::protocol::{
+    Command, DisableTestLed, EnableTestLed, LastCO2DataResponse, RequestLastCO2Data,
+};
 use atmosensor_client::{self as atmosensor, Atmosensor};
 use chrono::Utc;
 use futures::prelude::*;
@@ -50,6 +52,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             atmosensor::protocol::StartContinuousMeasurement {},
         ))
         .await?;
+    log::info!("Starting continuous measurement");
+
+    writer
+        .send(Command::RequestLastCO2Data(RequestLastCO2Data {}))
+        .await
+        .unwrap();
 
     let mut led_state = false;
 
