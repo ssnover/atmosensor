@@ -1,0 +1,9 @@
+database:
+  org: "snostorm"
+  bucket: "homelab"
+  host: "http://localhost"
+  port: 8086
+  token: "token"
+device:
+  tty_path: "/dev/atmosensor"
+  location: "living_room"
