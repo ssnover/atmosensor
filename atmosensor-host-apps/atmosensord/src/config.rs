@@ -22,7 +22,7 @@ pub struct DatabaseConfig {
 impl DatabaseConfig {
     pub fn make_client(&self) -> influxdb2::Client {
         influxdb2::Client::new(
-            format!("{}:{}", self.host, self.port),
+            format!("http://{}:{}", self.host, self.port),
             &self.org,
             self.token.expose_secret(),
         )

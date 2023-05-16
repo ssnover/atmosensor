@@ -1,7 +1,7 @@
 database:
   org: "snostorm"
   bucket: "homelab"
-  host: "http://localhost"
+  host: "localhost"
   port: 8086
   token: "token"
 device:
