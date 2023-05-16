@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use secrecy::{ExposeSecret, Secret};
 use serde_aux::field_attributes::deserialize_number_from_string;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct Config {
     pub database: DatabaseConfig,
     pub device: DeviceConfig,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct DatabaseConfig {
     pub org: String,
     pub bucket: String,
@@ -29,7 +29,7 @@ impl DatabaseConfig {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct DeviceConfig {
     pub tty_path: PathBuf,
     pub location: String,

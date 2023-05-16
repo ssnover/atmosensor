@@ -34,9 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     })
     .unwrap();
 
+    log::info!("Connecting to Atmosensor with config: {:?}", config.device);
     let (mut reader, mut writer) =
         Atmosensor::new(config.device.tty_path.to_string_lossy())?.split();
 
+    log::info!("Connecting to InfluxDB with config: {:?}", config.database);
     let influx_client = config.database.make_client();
 
     writer
