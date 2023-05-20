@@ -33,6 +33,8 @@ impl DatabaseConfig {
 pub struct DeviceConfig {
     pub tty_path: PathBuf,
     pub location: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub altitude: u16,
 }
 
 pub fn get_config() -> Result<Config, config::ConfigError> {

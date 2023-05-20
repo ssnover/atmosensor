@@ -1,4 +1,7 @@
-use atmosensor::protocol::{Command, DisableTestLed, EnableTestLed, LastCO2DataResponse};
+use atmosensor::protocol::{
+    Command, DisableTestLed, EnableTestLed, LastCO2DataResponse, LastHumidityResponse,
+    LastTemperatureResponse, SetAltitude,
+};
 use atmosensor_client::{self as atmosensor, Atmosensor};
 use chrono::Utc;
 use futures::prelude::*;
@@ -13,6 +16,28 @@ use atmosensord::config::get_config;
 #[derive(WriteDataPoint)]
 #[measurement = "co2_ppm"]
 struct CO2Data {
+    #[influxdb(tag)]
+    location: String,
+    #[influxdb(field)]
+    value: u64,
+    #[influxdb(timestamp)]
+    time: i64,
+}
+
+#[derive(WriteDataPoint)]
+#[measurement = "temperature_c"]
+struct Temperature {
+    #[influxdb(tag)]
+    location: String,
+    #[influxdb(field)]
+    value: i64,
+    #[influxdb(timestamp)]
+    time: i64,
+}
+
+#[derive(WriteDataPoint)]
+#[measurement = "relative_humidity"]
+struct RelativeHumidity {
     #[influxdb(tag)]
     location: String,
     #[influxdb(field)]
@@ -42,6 +67,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let influx_client = config.database.make_client();
 
     writer
+        .send(atmosensor::protocol::Command::SetAltitude(SetAltitude {
+            altitude: config.device.altitude,
+        }))
+        .await?;
+
+    writer
         .send(atmosensor::protocol::Command::StartContinuousMeasurement(
             atmosensor::protocol::StartContinuousMeasurement {},
         ))
@@ -62,6 +93,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ))
                     .await
                     .unwrap();
+                writer
+                    .send(Command::RequestLastTemperature(
+                        atmosensor::protocol::RequestLastTemperature {},
+                    ))
+                    .await
+                    .unwrap();
+                writer
+                    .send(Command::RequestLastHumidity(
+                        atmosensor::protocol::RequestLastHumidity {},
+                    ))
+                    .await
+                    .unwrap();
             }
             Some(Command::LastCO2DataResponse(LastCO2DataResponse { co_2_data })) => {
                 let co2_data_points = vec![CO2Data {
@@ -73,7 +116,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .write(&config.database.bucket, stream::iter(co2_data_points))
                     .await
                 {
-                    log::debug!("Writing data... {}", co_2_data);
+                    log::debug!("Writing co2 data... {}", co_2_data);
+                }
+            }
+            Some(Command::LastTemperatureResponse(LastTemperatureResponse { temperature })) => {
+                let temp_data_points = vec![Temperature {
+                    location: config.device.location.clone(),
+                    value: temperature.into(),
+                    time: Utc::now().timestamp_nanos(),
+                }];
+                if let Ok(..) = influx_client
+                    .write(&config.database.bucket, stream::iter(temp_data_points))
+                    .await
+                {
+                    log::debug!("Writing temperature data: {}", temperature);
+                }
+            }
+            Some(Command::LastHumidityResponse(LastHumidityResponse { relative_humidity })) => {
+                let humidity_data_points = vec![RelativeHumidity {
+                    location: config.device.location.clone(),
+                    value: relative_humidity.into(),
+                    time: Utc::now().timestamp_nanos(),
+                }];
+                if let Ok(..) = influx_client
+                    .write(&config.database.bucket, stream::iter(humidity_data_points))
+                    .await
+                {
+                    log::debug!("Writing relative humidity data: {}", relative_humidity);
                 }
             }
             Some(other) => {

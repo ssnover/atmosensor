@@ -7,3 +7,4 @@ database:
 device:
   tty_path: "/dev/atmosensor"
   location: "living_room"
+  altitude: 1606
