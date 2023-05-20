@@ -101,6 +101,12 @@ impl CommandHandler {
                 Command::Sensor(SensorCommand::RequestLastCO2Data) => {
                     cmd_handlers::sensor::handle_request_co2_data();
                 }
+                Command::Sensor(SensorCommand::RequestLastTemperature) => {
+                    cmd_handlers::sensor::handle_request_temperature();
+                }
+                Command::Sensor(SensorCommand::RequestLastHumidity) => {
+                    cmd_handlers::sensor::handle_request_humidity();
+                }
                 _ => {}
             }
         }

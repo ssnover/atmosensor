@@ -19,6 +19,10 @@ pub enum SensorCommand {
     ReportNewData,
     RequestLastCO2Data,
     LastCO2DataResponse { CO2Data: u16 },
+    RequestLastTemperature,
+    LastTemperatureResponse { Temperature: i16 },
+    RequestLastHumidity,
+    LastHumidityResponse { RelativeHumidity: u16 },
 }
 
 #[allow(non_snake_case)]
@@ -92,6 +96,8 @@ impl SensorCommand {
             }),
             0x03 => Some(SensorCommand::StartContinuousMeasurement),
             0x05 => Some(SensorCommand::RequestLastCO2Data),
+            0x07 => Some(SensorCommand::RequestLastTemperature),
+            0x09 => Some(SensorCommand::RequestLastHumidity),
             _ => None,
         }
     }
@@ -106,6 +112,18 @@ impl SensorCommand {
                 buf[0] = 0x06;
                 buf[1] = (CO2Data >> 8) as u8;
                 buf[2] = (CO2Data & 0xff) as u8;
+                Ok(3)
+            }
+            SensorCommand::LastTemperatureResponse { Temperature } => {
+                buf[0] = 0x08;
+                buf[1] = (*Temperature as u16 >> 8) as u8;
+                buf[2] = (*Temperature as u16 & 0xff) as u8;
+                Ok(3)
+            }
+            SensorCommand::LastHumidityResponse { RelativeHumidity } => {
+                buf[0] = 0x0a;
+                buf[1] = (RelativeHumidity >> 8) as u8;
+                buf[2] = (RelativeHumidity & 0xff) as u8;
                 Ok(3)
             }
             _ => Err(()),
