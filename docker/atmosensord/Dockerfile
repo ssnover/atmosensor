@@ -1,4 +1,4 @@
-FROM rust:1.69-slim-bullseye as atmosensor-dev
+FROM rust:1.70-slim-bullseye as atmosensor-dev
 WORKDIR /app
 RUN apt-get update -y \
     && apt install -y --no-install-recommends \

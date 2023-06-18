@@ -1,0 +1,45 @@
+[package]
+name = "atmosensor-esp32"
+version = "0.1.0"
+authors = ["Shane Snover <ssnover95@gmail.com>"]
+edition = "2021"
+resolver = "2"
+rust-version = "1.66"
+
+[profile.release]
+opt-level = "s"
+
+[profile.dev]
+debug = true    # Symbols are nice and they don't increase the size on Flash
+opt-level = "z"
+
+[features]
+default = ["std", "hal", "esp-idf-sys/native"]
+
+pio = ["esp-idf-sys/pio"]
+hal = ["esp-idf-hal", "embedded-svc", "esp-idf-svc"]
+std = [
+    "alloc",
+    "esp-idf-sys/std",
+    "esp-idf-sys/binstart",
+    "embedded-svc?/std",
+    "esp-idf-hal?/std",
+    "esp-idf-svc?/std",
+]
+alloc = ["embedded-svc?/alloc", "esp-idf-hal?/alloc", "esp-idf-svc?/alloc"]
+
+[dependencies]
+anyhow = "1.0"
+crc_all = "0.2"
+embedded-hal = { features = ["unproven"], version = "0.2.7" }
+embedded-svc = { version = "0.25", optional = true, default-features = false }
+esp-idf-sys = { version = "0.33", default-features = false }
+esp-idf-hal = { version = "0.41", optional = true, default-features = false }
+esp-idf-svc = { version = "0.46", optional = true, default-features = false }
+heapless = "0.7.4"
+log = { version = "0.4.17", default-features = false }
+toml-cfg = "0.1.3"
+
+[build-dependencies]
+embuild = "0.31.2"
+toml-cfg = "0.1.3"
